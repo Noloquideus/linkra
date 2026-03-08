@@ -1,0 +1,182 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Созвон по ссылке</title>
+    <link rel="stylesheet" href="/static/style.css" />
+  </head>
+  <body>
+    <div id="toast-stack" class="toast-stack"></div>
+
+    <main class="container">
+      <section class="card home-card">
+        <h1>Созвон по ссылке</h1>
+        <p class="muted intro-text">
+          Укажи название комнаты, при необходимости задай пароль, получи ссылку и отправь её другому человеку.
+        </p>
+
+        <div id="create-form" class="stack-lg">
+          <div class="field-group">
+            <label for="room-title-input">Название комнаты</label>
+            <input
+              id="room-title-input"
+              type="text"
+              placeholder="Например, Планёрка команды"
+              maxlength="100"
+            />
+            <div id="room-title-error" class="error-text"></div>
+          </div>
+
+          <div class="field-group password-field-group">
+            <label for="room-password-input" class="inline-label">
+              <span>Пароль комнаты</span>
+              <span class="muted optional-inline">(необязательно)</span>
+            </label>
+            <input
+              id="room-password-input"
+              type="text"
+              placeholder="Например, team2026"
+              maxlength="100"
+            />
+            <div id="room-password-error" class="error-text"></div>
+          </div>
+
+          {% if telegram_alerting_available %}
+          <div class="field-group checkbox-field-group">
+            <label for="telegram-alerts-input" class="checkbox-label">
+              <input id="telegram-alerts-input" type="checkbox" />
+              <span>Отправить итоги созвона в Telegram</span>
+            </label>
+          </div>
+          {% endif %}
+
+          <button id="create-call-btn" class="btn primary create-btn">Создать звонок</button>
+        </div>
+
+        <div id="result" class="result hidden stack-lg">
+          <div class="field-group">
+            <label for="invite-link">Ссылка приглашения</label>
+            <input id="invite-link" type="text" readonly />
+          </div>
+
+          <button id="copy-link-btn" class="btn secondary copy-btn" type="button">Копировать</button>
+
+          <p id="room-title-result" class="muted room-title-result"></p>
+
+          <a id="open-link" href="#" target="_blank" rel="noreferrer" class="btn primary open-call-btn">
+            Перейти в звонок
+          </a>
+        </div>
+      </section>
+    </main>
+
+    <script>
+      const createButton = document.getElementById('create-call-btn');
+      const copyButton = document.getElementById('copy-link-btn');
+      const result = document.getElementById('result');
+      const createForm = document.getElementById('create-form');
+      const inviteLinkInput = document.getElementById('invite-link');
+      const roomTitleInput = document.getElementById('room-title-input');
+      const roomPasswordInput = document.getElementById('room-password-input');
+      const roomTitleError = document.getElementById('room-title-error');
+      const roomPasswordError = document.getElementById('room-password-error');
+      const roomTitleResult = document.getElementById('room-title-result');
+      const openLink = document.getElementById('open-link');
+      const toastStack = document.getElementById('toast-stack');
+      const telegramAlertsInput = document.getElementById('telegram-alerts-input');
+
+      function showToast(message, type = 'info') {
+        const toast = document.createElement('div');
+        toast.className = `toast ${type}`;
+        toast.textContent = message;
+        toastStack.appendChild(toast);
+        setTimeout(() => {
+          toast.style.opacity = '0';
+          toast.style.transform = 'translateY(-6px)';
+        }, 2300);
+        setTimeout(() => toast.remove(), 2600);
+      }
+
+      function setFieldError(input, errorEl, message = '') {
+        input.classList.toggle('input-error', !!message);
+        errorEl.textContent = message;
+      }
+
+      function clearErrors() {
+        setFieldError(roomTitleInput, roomTitleError, '');
+        setFieldError(roomPasswordInput, roomPasswordError, '');
+      }
+
+      roomTitleInput.addEventListener('input', () => setFieldError(roomTitleInput, roomTitleError, ''));
+      roomPasswordInput.addEventListener('input', () => setFieldError(roomPasswordInput, roomPasswordError, ''));
+      inviteLinkInput.addEventListener('click', () => inviteLinkInput.select());
+
+      createButton.addEventListener('click', async () => {
+        clearErrors();
+
+        const roomTitle = roomTitleInput.value.trim();
+        const password = roomPasswordInput.value.trim();
+        const telegramAlertEnabled = !!telegramAlertsInput?.checked;
+
+        if (roomTitle.length < 4) {
+          setFieldError(roomTitleInput, roomTitleError, 'Название комнаты должно содержать минимум 4 символа');
+          return;
+        }
+
+        if (password.length > 0 && password.length < 4) {
+          setFieldError(roomPasswordInput, roomPasswordError, 'Пароль должен содержать минимум 4 символа');
+          return;
+        }
+
+        createButton.disabled = true;
+        createButton.textContent = 'Создаю...';
+
+        try {
+          const response = await fetch('/api/calls', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              room_title: roomTitle,
+              password,
+              telegram_alert_enabled: telegramAlertEnabled,
+            }),
+          });
+
+          if (!response.ok) {
+            const error = await response.json().catch(() => ({}));
+            throw new Error(error.detail || 'Не удалось создать звонок');
+          }
+
+          const data = await response.json();
+          const finalRoomTitle = data.room_title || roomTitle || 'Без названия';
+
+          inviteLinkInput.value = data.invite_link;
+          openLink.href = data.invite_link;
+          roomTitleResult.textContent = `Название комнаты: ${finalRoomTitle}`;
+
+          createForm.classList.add('hidden');
+          result.classList.remove('hidden');
+          showToast('Ссылка на звонок готова', 'success');
+        } catch (error) {
+          showToast(error.message || 'Не удалось создать звонок', 'error');
+        } finally {
+          createButton.disabled = false;
+          createButton.textContent = 'Создать звонок';
+        }
+      });
+
+      copyButton.addEventListener('click', async () => {
+        try {
+          await navigator.clipboard.writeText(inviteLinkInput.value);
+          copyButton.textContent = 'Скопировано';
+          setTimeout(() => {
+            copyButton.textContent = 'Копировать';
+          }, 1200);
+        } catch {
+          showToast('Не удалось скопировать ссылку', 'error');
+        }
+      });
+    </script>
+  </body>
+</html>

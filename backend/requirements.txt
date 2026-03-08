@@ -1,0 +1,6 @@
+fastapi
+uvicorn[standard]
+jinja2
+livekit-api
+pydantic-settings
+python-multipart

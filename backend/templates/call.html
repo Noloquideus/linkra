@@ -1,0 +1,1314 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{{ room_title }}</title>
+    <link rel="stylesheet" href="/static/style.css" />
+    <script src="https://cdn.jsdelivr.net/npm/livekit-client/dist/livekit-client.umd.min.js"></script>
+  </head>
+  <body>
+    <div id="toast-stack" class="toast-stack"></div>
+
+    <main id="page-root" class="container wide">
+      <section class="card join-card" id="join-card">
+        <div class="prejoin-header">
+          <div>
+            <h1>{{ room_title }}</h1>
+            <p class="muted prejoin-subtitle">Проверь камеру и микрофон перед входом в комнату.</p>
+          </div>
+        </div>
+
+        <div class="prejoin-layout">
+          <div class="prejoin-preview-card">
+            <div class="preview-stage" id="preview-stage">
+              <video id="prejoin-preview-video" class="prejoin-preview-video hidden" autoplay playsinline muted></video>
+
+              <div id="prejoin-preview-placeholder" class="prejoin-preview-placeholder">
+                <div class="preview-avatar" id="preview-avatar">?</div>
+                <div class="preview-placeholder-title">Камера выключена</div>
+                <div class="preview-placeholder-text">Включи камеру, чтобы увидеть себя перед входом</div>
+              </div>
+            </div>
+          </div>
+
+          <div id="prejoin-panel" class="prejoin-controls-card">
+            <div id="join-error-banner" class="inline-banner hidden"></div>
+
+            <div class="field-group">
+              <label for="display-name">Твоё имя</label>
+              <input id="display-name" type="text" placeholder="Например, Артём" maxlength="50" />
+              <div id="display-name-error" class="error-text"></div>
+            </div>
+
+            <div class="field-group password-field-group {% if not has_password %}hidden{% endif %}" id="password-field-group">
+              <label for="room-password" class="inline-label">
+                <span>Пароль комнаты</span>
+                <span class="muted optional-inline">(необязательно)</span>
+              </label>
+              <input id="room-password" type="text" placeholder="Введите пароль комнаты" maxlength="100" />
+              <div id="room-password-error" class="error-text"></div>
+            </div>
+
+            <div class="prejoin-audio-meter-card">
+              <div class="audio-meter-head">
+                <span>Проверка микрофона</span>
+                <span id="audio-meter-state" class="audio-meter-state">Готов</span>
+              </div>
+              <div class="audio-meter-track">
+                <div id="audio-meter-fill" class="audio-meter-fill"></div>
+              </div>
+              <div class="audio-meter-hint muted">Скажи что-нибудь — индикатор должен двигаться.</div>
+            </div>
+
+            <div class="prejoin-media-row">
+              <button id="prejoin-audio-btn" type="button" class="toggle-btn active" aria-label="Микрофон включен">
+                <span class="icon-wrap" aria-hidden="true">
+                  <img class="icon icon-mic-on" src="/static/icons/micro_on.png" alt="" />
+                  <img class="icon icon-mic-off" src="/static/icons/micro_off.png" alt="" />
+                </span>
+                <span id="prejoin-audio-label">Микрофон включён</span>
+              </button>
+
+              <button id="prejoin-video-btn" type="button" class="toggle-btn active" aria-label="Камера включена">
+                <span class="icon-wrap" aria-hidden="true">
+                  <img class="icon icon-cam-on" src="/static/icons/camera_on.png" alt="" />
+                  <img class="icon icon-cam-off" src="/static/icons/camera_off.png" alt="" />
+                </span>
+                <span id="prejoin-video-label">Камера включена</span>
+              </button>
+            </div>
+
+            <div class="row gap-top prejoin-action-row">
+              <button id="join-btn" class="btn primary join-main-btn">Войти в звонок</button>
+            </div>
+
+            <p id="status" class="status">Статус: ожидание входа</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="layout-grid">
+        <section class="card meeting-card hidden" id="meeting-card">
+          <div id="reconnect-banner" class="reconnect-banner hidden">
+            <div class="row">
+              <span id="reconnect-spinner" class="spinner hidden"></span>
+              <strong id="reconnect-text">Переподключаем…</strong>
+            </div>
+            <div class="reconnect-banner-actions">
+              <button id="retry-reconnect-btn" type="button" class="btn secondary hidden">Повторить</button>
+            </div>
+          </div>
+
+          <div class="meeting-topbar">
+            <div class="meeting-title-wrap">
+              <div class="meeting-title">Созвон</div>
+              <div class="meeting-room-name">{{ room_title }}</div>
+            </div>
+
+            <div class="meeting-controls">
+              <div class="connection-indicator good" id="connection-indicator">
+                <span class="bar"></span>
+                <span class="bar"></span>
+                <span class="bar"></span>
+                <span class="bar"></span>
+              </div>
+
+              <button id="mic-btn" class="icon-btn" disabled aria-label="Микрофон">
+                <img class="icon icon-mic-on" src="/static/icons/micro_on.png" alt="" />
+                <img class="icon icon-mic-off" src="/static/icons/micro_off.png" alt="" />
+              </button>
+
+              <button id="camera-btn" class="icon-btn" disabled aria-label="Камера">
+                <img class="icon icon-cam-on" src="/static/icons/camera_on.png" alt="" />
+                <img class="icon icon-cam-off" src="/static/icons/camera_off.png" alt="" />
+              </button>
+
+              <div id="call-timer" class="meeting-timer">00:00</div>
+
+              <button id="copy-invite-btn" class="btn secondary invite-inline-btn" disabled>Скопировать ссылку</button>
+            </div>
+          </div>
+
+          <div class="videos layout-1" id="videos"></div>
+        </section>
+
+        <aside class="card chat-card hidden" id="chat-card">
+          <h2 class="chat-title">Чат комнаты</h2>
+          <div id="chat-messages" class="chat-messages"></div>
+
+          <div id="chat-dropzone" class="chat-dropzone hidden" aria-hidden="true">
+            Перетащи файл сюда, чтобы отправить в чат
+          </div>
+
+          <div class="chat-form">
+            <div class="chat-input-row">
+              <input id="chat-input" type="text" placeholder="Напиши сообщение..." maxlength="1000" disabled />
+
+              <input id="attachment-input" type="file" class="hidden" />
+              <button id="attachment-btn" class="icon-btn attachment-btn" type="button" aria-label="Прикрепить файл" disabled>
+                <img class="attachment-icon" src="/static/icons/attachment.png" alt="" />
+              </button>
+            </div>
+
+            <button id="chat-send-btn" class="btn primary" disabled>Отправить</button>
+          </div>
+        </aside>
+      </section>
+
+      <div id="call-actions-trigger" class="call-actions-trigger hidden" aria-hidden="true"></div>
+
+      <div id="call-bottom-actions" class="call-bottom-actions hidden">
+        <button id="leave-btn" type="button" class="btn secondary leave-bottom-btn" disabled>Выйти</button>
+        <button id="finish-btn" type="button" class="btn danger finish-call-btn" disabled>Завершить</button>
+      </div>
+    </main>
+
+    <script>
+      const roomName = {{ room_name | tojson }};
+      const hasPassword = {{ has_password | tojson }};
+      const maxAttachmentSizeMb = {{ max_attachment_size_mb | tojson }};
+      const maxAttachmentSizeBytes = maxAttachmentSizeMb * 1024 * 1024;
+      const statusEl = document.getElementById('status');
+      const timerEl = document.getElementById('call-timer');
+      const pageRoot = document.getElementById('page-root');
+      const joinCard = document.getElementById('join-card');
+      const meetingCard = document.getElementById('meeting-card');
+      const chatCard = document.getElementById('chat-card');
+      const joinBtn = document.getElementById('join-btn');
+      const leaveBtn = document.getElementById('leave-btn');
+      const copyInviteBtn = document.getElementById('copy-invite-btn');
+      const finishBtn = document.getElementById('finish-btn');
+      const callBottomActions = document.getElementById('call-bottom-actions');
+      const callActionsTrigger = document.getElementById('call-actions-trigger');
+      const micBtn = document.getElementById('mic-btn');
+      const cameraBtn = document.getElementById('camera-btn');
+      const prejoinAudioBtn = document.getElementById('prejoin-audio-btn');
+      const prejoinVideoBtn = document.getElementById('prejoin-video-btn');
+      const prejoinAudioLabel = document.getElementById('prejoin-audio-label');
+      const prejoinVideoLabel = document.getElementById('prejoin-video-label');
+      const previewVideo = document.getElementById('prejoin-preview-video');
+      const previewPlaceholder = document.getElementById('prejoin-preview-placeholder');
+      const previewAvatar = document.getElementById('preview-avatar');
+      const audioMeterFill = document.getElementById('audio-meter-fill');
+      const audioMeterState = document.getElementById('audio-meter-state');
+      const chatInput = document.getElementById('chat-input');
+      const chatSendBtn = document.getElementById('chat-send-btn');
+      const chatMessages = document.getElementById('chat-messages');
+      const displayNameInput = document.getElementById('display-name');
+      const displayNameError = document.getElementById('display-name-error');
+      const roomPasswordInput = document.getElementById('room-password');
+      const roomPasswordError = document.getElementById('room-password-error');
+      const joinErrorBanner = document.getElementById('join-error-banner');
+      const passwordFieldGroup = document.getElementById('password-field-group');
+      const videos = document.getElementById('videos');
+      const toastStack = document.getElementById('toast-stack');
+      const reconnectBanner = document.getElementById('reconnect-banner');
+      const reconnectSpinner = document.getElementById('reconnect-spinner');
+      const reconnectText = document.getElementById('reconnect-text');
+      const retryReconnectBtn = document.getElementById('retry-reconnect-btn');
+      const attachmentInput = document.getElementById('attachment-input');
+      const attachmentBtn = document.getElementById('attachment-btn');
+      const chatDropzone = document.getElementById('chat-dropzone');
+
+      let room = null;
+      let micEnabled = true;
+      let cameraEnabled = true;
+      let callStartedAt = null;
+      let timerInterval = null;
+      let isRestoringSession = false;
+      let previewStream = null;
+      let audioContext = null;
+      let audioAnalyser = null;
+      let audioDataArray = null;
+      let audioMeterFrame = null;
+      let intentionalDisconnect = false;
+      let reconnectInProgress = false;
+      let activeReconnectAttempt = 0;
+
+      function showToast(message, type = 'info') {
+        const toast = document.createElement('div');
+        toast.className = `toast ${type}`;
+        toast.textContent = message;
+        toastStack.appendChild(toast);
+        setTimeout(() => {
+          toast.style.opacity = '0';
+          toast.style.transform = 'translateY(-6px)';
+        }, 2300);
+        setTimeout(() => toast.remove(), 2600);
+      }
+
+      function getInviteUrl() {
+        return window.location.href;
+      }
+
+
+      function escapeHtml(value) {
+        return String(value)
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;')
+          .replace(/'/g, '&#39;');
+      }
+
+      function formatFileSize(sizeBytes = 0) {
+        if (sizeBytes < 1024) return `${sizeBytes} Б`;
+        const kb = sizeBytes / 1024;
+        if (kb < 1024) return `${kb.toFixed(kb >= 100 ? 0 : 1)} КБ`;
+        const mb = kb / 1024;
+        if (mb < 1024) return `${mb.toFixed(mb >= 100 ? 0 : 1)} МБ`;
+        const gb = mb / 1024;
+        return `${gb.toFixed(1)} ГБ`;
+      }
+
+      function buildAttachmentUrl(downloadUrl) {
+        const inviteToken = getInviteToken();
+        const separator = downloadUrl.includes('?') ? '&' : '?';
+        return `${downloadUrl}${separator}invite_token=${encodeURIComponent(inviteToken)}`;
+      }
+
+      function setButtonLoading(button, isLoading, loadingText, idleText) {
+        if (!button) return;
+        if (!button.dataset.defaultHtml) {
+          button.dataset.defaultHtml = button.innerHTML;
+        }
+        if (!button.dataset.defaultText) {
+          button.dataset.defaultText = idleText !== undefined ? idleText : button.textContent.trim();
+        }
+        button.disabled = isLoading;
+        button.classList.toggle('is-loading', isLoading);
+
+        const fallbackText = idleText !== undefined ? idleText : button.dataset.defaultText;
+        if (isLoading) {
+          button.textContent = loadingText;
+        } else if ((idleText ?? button.dataset.defaultText ?? '').length > 0) {
+          button.textContent = fallbackText;
+        } else {
+          button.innerHTML = button.dataset.defaultHtml;
+        }
+      }
+
+      async function copyInviteLink() {
+        try {
+          setButtonLoading(copyInviteBtn, true, 'Копируем...', 'Скопировать ссылку');
+          await navigator.clipboard.writeText(getInviteUrl());
+          showToast('Ссылка на звонок скопирована', 'success');
+          copyInviteBtn.textContent = 'Скопировано ✓';
+          setTimeout(() => {
+            if (!copyInviteBtn.classList.contains('is-loading')) {
+              copyInviteBtn.textContent = 'Скопировать ссылку';
+            }
+          }, 1500);
+        } catch (error) {
+          showToast('Не удалось скопировать ссылку', 'error');
+          copyInviteBtn.textContent = 'Скопировать ссылку';
+        } finally {
+          copyInviteBtn.disabled = false;
+          copyInviteBtn.classList.remove('is-loading');
+        }
+      }
+
+      function setStatus(text, kind = '') {
+        statusEl.textContent = `Статус: ${text}`;
+        statusEl.classList.remove('reconnecting', 'error', 'success');
+        if (kind) statusEl.classList.add(kind);
+      }
+
+      function setFieldError(input, errorEl, message = '') {
+        if (!input || !errorEl) return;
+        input.classList.toggle('input-error', !!message);
+        errorEl.textContent = message;
+      }
+
+      function clearJoinErrors() {
+        setFieldError(displayNameInput, displayNameError, '');
+        setFieldError(roomPasswordInput, roomPasswordError, '');
+        joinErrorBanner.classList.add('hidden');
+        joinErrorBanner.textContent = '';
+      }
+
+      function setJoinError(message) {
+        joinErrorBanner.textContent = message || '';
+        joinErrorBanner.classList.toggle('hidden', !message);
+      }
+
+      function showMeetingScreen() {
+        joinCard.classList.add('hidden');
+        meetingCard.classList.remove('hidden');
+        chatCard.classList.remove('hidden');
+        callActionsTrigger.classList.remove('hidden');
+        callBottomActions.classList.remove('hidden');
+        updateBottomActionsVisibility();
+      }
+
+      function showPrejoinScreen() {
+        joinCard.classList.remove('hidden');
+        meetingCard.classList.add('hidden');
+        chatCard.classList.add('hidden');
+        callActionsTrigger.classList.add('hidden');
+        callBottomActions.classList.add('hidden');
+        callBottomActions.classList.remove('is-visible');
+      }
+
+      function updateBottomActionsVisibility() {
+        if (!callBottomActions || !callActionsTrigger) return;
+        if (meetingCard.classList.contains('hidden')) {
+          callBottomActions.classList.remove('is-visible');
+          return;
+        }
+
+        const triggerRect = callActionsTrigger.getBoundingClientRect();
+        const viewportHeight = window.innerHeight || document.documentElement.clientHeight;
+        const revealOffset = 40;
+        const shouldShow = triggerRect.top <= viewportHeight - revealOffset;
+
+        callBottomActions.classList.toggle('is-visible', shouldShow);
+      }
+
+      function setControlsDisabled(disabled) {
+        pageRoot.classList.toggle('page-controls-disabled', disabled);
+        [leaveBtn, micBtn, cameraBtn, chatInput, chatSendBtn, finishBtn, copyInviteBtn, attachmentBtn].forEach((el) => {
+          if (!el) return;
+          el.disabled = disabled;
+        });
+      }
+
+      function showReconnectBanner(message, { loading = false, showRetry = false } = {}) {
+        reconnectText.textContent = message;
+        reconnectBanner.classList.remove('hidden');
+        reconnectSpinner.classList.toggle('hidden', !loading);
+        retryReconnectBtn.classList.toggle('hidden', !showRetry);
+      }
+
+      function hideReconnectBanner() {
+        reconnectBanner.classList.add('hidden');
+        reconnectSpinner.classList.add('hidden');
+        retryReconnectBtn.classList.add('hidden');
+      }
+
+      function getInviteToken() {
+        const url = new URL(window.location.href);
+        return url.searchParams.get('invite') || '';
+      }
+
+      function getSessionStorageKey() {
+        return `call-session:${roomName}`;
+      }
+
+      function saveCallSession(data) {
+        sessionStorage.setItem(getSessionStorageKey(), JSON.stringify(data));
+      }
+
+      function loadCallSession() {
+        const raw = sessionStorage.getItem(getSessionStorageKey());
+        if (!raw) return null;
+        try {
+          const parsed = JSON.parse(raw);
+          return {
+            ...parsed,
+            roomPassword: parsed.roomPassword || '',
+            micEnabled: parsed.micEnabled ?? true,
+            cameraEnabled: parsed.cameraEnabled ?? true,
+          };
+        } catch {
+          return null;
+        }
+      }
+
+      function clearCallSession() {
+        sessionStorage.removeItem(getSessionStorageKey());
+      }
+
+      function updateSavedSession(patch) {
+        const saved = loadCallSession();
+        if (!saved) return;
+        saveCallSession({ ...saved, ...patch });
+      }
+
+      function formatDuration(totalSeconds) {
+        const mins = Math.floor(totalSeconds / 60).toString().padStart(2, '0');
+        const secs = Math.floor(totalSeconds % 60).toString().padStart(2, '0');
+        return `${mins}:${secs}`;
+      }
+
+      function startTimer() {
+        stopTimer();
+        callStartedAt = Date.now();
+        timerEl.textContent = '00:00';
+        timerInterval = setInterval(() => {
+          const seconds = Math.floor((Date.now() - callStartedAt) / 1000);
+          timerEl.textContent = formatDuration(seconds);
+        }, 1000);
+      }
+
+      function stopTimer() {
+        if (timerInterval) clearInterval(timerInterval);
+        timerInterval = null;
+      }
+
+      function initialsFromLabel(label) {
+        const clean = (label || '?').trim();
+        return clean.charAt(0).toUpperCase() || '?';
+      }
+
+      function updatePreviewAvatar() {
+        previewAvatar.textContent = initialsFromLabel(displayNameInput.value || 'Я');
+      }
+
+      function updatePreviewVisibility() {
+        const hasVideoTrack = !!(previewStream && previewStream.getVideoTracks().length > 0 && cameraEnabled);
+        previewVideo.classList.toggle('hidden', !hasVideoTrack);
+        previewPlaceholder.classList.toggle('hidden', hasVideoTrack);
+      }
+
+      function stopPreviewMeter() {
+        if (audioMeterFrame) {
+          cancelAnimationFrame(audioMeterFrame);
+          audioMeterFrame = null;
+        }
+        if (audioContext) {
+          try { audioContext.close(); } catch (_) {}
+        }
+        audioContext = null;
+        audioAnalyser = null;
+        audioDataArray = null;
+        audioMeterFill.style.width = '0%';
+      }
+
+      function startPreviewMeter(stream) {
+        stopPreviewMeter();
+        const audioTracks = stream.getAudioTracks();
+        if (!audioTracks.length || !micEnabled) {
+          audioMeterState.textContent = micEnabled ? 'Нет сигнала' : 'Микрофон выключен';
+          return;
+        }
+        try {
+          audioContext = new (window.AudioContext || window.webkitAudioContext)();
+          const source = audioContext.createMediaStreamSource(new MediaStream([audioTracks[0]]));
+          audioAnalyser = audioContext.createAnalyser();
+          audioAnalyser.fftSize = 256;
+          audioDataArray = new Uint8Array(audioAnalyser.frequencyBinCount);
+          source.connect(audioAnalyser);
+          audioMeterState.textContent = 'Слушаем';
+          const tick = () => {
+            if (!audioAnalyser) return;
+            audioAnalyser.getByteFrequencyData(audioDataArray);
+            let sum = 0;
+            for (let i = 0; i < audioDataArray.length; i += 1) sum += audioDataArray[i];
+            const average = sum / audioDataArray.length;
+            const level = Math.min(100, Math.max(4, average * 1.25));
+            audioMeterFill.style.width = `${level}%`;
+            audioMeterFrame = requestAnimationFrame(tick);
+          };
+          tick();
+        } catch (error) {
+          console.error('Не удалось запустить индикатор микрофона', error);
+          audioMeterState.textContent = 'Нет доступа';
+        }
+      }
+
+      async function stopPrejoinPreview() {
+        stopPreviewMeter();
+        if (previewStream) {
+          previewStream.getTracks().forEach((track) => track.stop());
+          previewStream = null;
+        }
+        previewVideo.srcObject = null;
+        updatePreviewVisibility();
+      }
+
+      async function refreshPrejoinPreview() {
+        updatePreviewAvatar();
+        audioMeterState.textContent = micEnabled ? 'Готов' : 'Микрофон выключен';
+        await stopPrejoinPreview();
+
+        if (!cameraEnabled && !micEnabled) {
+          updatePreviewVisibility();
+          return;
+        }
+
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia({ video: cameraEnabled, audio: micEnabled });
+          previewStream = stream;
+          if (cameraEnabled && stream.getVideoTracks().length) {
+            previewVideo.srcObject = new MediaStream([stream.getVideoTracks()[0]]);
+          }
+          updatePreviewVisibility();
+          startPreviewMeter(stream);
+        } catch (error) {
+          console.error('Не удалось получить доступ к устройствам', error);
+          setStatus('нет доступа к камере или микрофону', 'error');
+          audioMeterState.textContent = 'Нет доступа';
+          updatePreviewVisibility();
+          showToast('Не удалось получить доступ к камере или микрофону', 'error');
+        }
+      }
+
+      function updateVideoLayout() {
+        const count = videos.querySelectorAll('.video-tile').length;
+        videos.classList.remove('layout-1', 'layout-2', 'layout-3-4', 'layout-many');
+        if (count <= 1) videos.classList.add('layout-1');
+        else if (count === 2) videos.classList.add('layout-2');
+        else if (count <= 4) videos.classList.add('layout-3-4');
+        else videos.classList.add('layout-many');
+      }
+
+      function reorderVideoTiles() {
+        const tiles = Array.from(videos.querySelectorAll('.video-tile'));
+        tiles.sort((a, b) => {
+          const aSpeaking = a.classList.contains('speaking') ? 1 : 0;
+          const bSpeaking = b.classList.contains('speaking') ? 1 : 0;
+          if (aSpeaking !== bSpeaking) return bSpeaking - aSpeaking;
+          return (Number(a.dataset.createdOrder) || 0) - (Number(b.dataset.createdOrder) || 0);
+        });
+        tiles.forEach((tile) => videos.appendChild(tile));
+      }
+
+      function participantTile(identity, label) {
+        let tile = document.querySelector(`[data-participant="${identity}"]`);
+        if (!tile) {
+          tile = document.createElement('div');
+          tile.className = 'video-tile';
+          tile.dataset.participant = identity;
+          tile.dataset.createdOrder = String(videos.children.length + 1);
+          tile.innerHTML = `
+            <div class="video-label-row">
+              <div class="video-label-wrap">
+                <div class="video-label"></div>
+                <span class="speaking-badge">Говорит</span>
+              </div>
+              <div class="participant-state-icons">
+                <span class="state-icon state-mic-off" title="Микрофон выключен">
+                  <img src="/static/icons/micro_off.png" alt="" />
+                </span>
+                <span class="state-icon state-cam-off" title="Камера выключена">
+                  <img src="/static/icons/camera_off.png" alt="" />
+                </span>
+              </div>
+            </div>
+            <div class="media-slot">
+              <div class="avatar-placeholder"></div>
+            </div>
+          `;
+          videos.appendChild(tile);
+          updateVideoLayout();
+        }
+        tile.querySelector('.video-label').textContent = label;
+        tile.querySelector('.avatar-placeholder').textContent = initialsFromLabel(label);
+        return tile;
+      }
+
+      function setParticipantMicState(identity, isEnabled) {
+        const tile = document.querySelector(`[data-participant="${identity}"]`);
+        if (!tile) return;
+        tile.classList.toggle('mic-muted', !isEnabled);
+      }
+
+      function setParticipantCamState(identity, isEnabled) {
+        const tile = document.querySelector(`[data-participant="${identity}"]`);
+        if (!tile) return;
+        tile.classList.toggle('cam-muted', !isEnabled);
+      }
+
+      function showAvatar(participantIdentity, participantLabel) {
+        const tile = participantTile(participantIdentity, participantLabel);
+        const slot = tile.querySelector('.media-slot');
+        const avatar = slot.querySelector('.avatar-placeholder');
+        slot.querySelectorAll('video').forEach((el) => el.remove());
+        avatar.style.display = 'flex';
+        setParticipantCamState(participantIdentity, false);
+      }
+
+      function attachTrack(track, participantIdentity, participantLabel, isLocal = false) {
+        const tile = participantTile(participantIdentity, participantLabel);
+        const slot = tile.querySelector('.media-slot');
+        const avatar = slot.querySelector('.avatar-placeholder');
+
+        if (track.kind === 'video') slot.querySelectorAll('video').forEach((el) => el.remove());
+        if (track.kind === 'audio') {
+          slot.querySelectorAll('audio').forEach((el) => el.remove());
+          if (isLocal) return;
+        }
+
+        const element = track.attach();
+        element.autoplay = true;
+        element.playsInline = true;
+        if (track.kind === 'audio') element.classList.add('hidden-audio');
+        if (track.kind === 'video') {
+          avatar.style.display = 'none';
+          setParticipantCamState(participantIdentity, true);
+        }
+        if (track.kind === 'video' && isLocal) {
+          element.classList.add('local-video');
+          element.muted = true;
+        }
+        slot.appendChild(element);
+      }
+
+      function detachParticipant(identity) {
+        const tile = document.querySelector(`[data-participant="${identity}"]`);
+        if (tile) tile.remove();
+        updateVideoLayout();
+      }
+
+      function attachExistingLocalTracks(displayName) {
+        if (!room) return;
+        const localParticipant = room.localParticipant;
+        const localLabel = `${displayName} (ты)`;
+        let hasLocalVideo = false;
+        participantTile(localParticipant.identity, localLabel);
+        localParticipant.trackPublications.forEach((publication) => {
+          if (publication.track) {
+            attachTrack(publication.track, localParticipant.identity, localLabel, true);
+            if (publication.track.kind === 'video') hasLocalVideo = true;
+          }
+        });
+        if (!hasLocalVideo) showAvatar(localParticipant.identity, localLabel);
+        setParticipantMicState(localParticipant.identity, micEnabled);
+        setParticipantCamState(localParticipant.identity, cameraEnabled && hasLocalVideo);
+      }
+
+      function refreshRemoteParticipantMedia(participant) {
+        const label = participant.name || participant.identity;
+        let hasVideo = false;
+        let hasAudio = false;
+        participant.trackPublications.forEach((publication) => {
+          if (publication.track) {
+            attachTrack(publication.track, participant.identity, label, false);
+            if (publication.track.kind === 'video') hasVideo = true;
+            if (publication.track.kind === 'audio') hasAudio = true;
+          }
+        });
+        if (!hasVideo) showAvatar(participant.identity, label);
+        setParticipantMicState(participant.identity, hasAudio);
+        setParticipantCamState(participant.identity, hasVideo);
+      }
+
+      function updateSpeakingIndicators(speakers) {
+        const speakerIds = new Set(speakers.map((participant) => participant.identity));
+        document.querySelectorAll('.video-tile').forEach((tile) => {
+          tile.classList.toggle('speaking', speakerIds.has(tile.dataset.participant));
+        });
+        reorderVideoTiles();
+      }
+
+      function addChatMessage(author, text, isOwn = false) {
+        const item = document.createElement('div');
+        item.className = `chat-message${isOwn ? ' own' : ''}`;
+        const authorEl = document.createElement('div');
+        authorEl.className = 'chat-author';
+        authorEl.textContent = author;
+        const textEl = document.createElement('div');
+        textEl.className = 'chat-text';
+        textEl.textContent = text;
+        item.appendChild(authorEl);
+        item.appendChild(textEl);
+        chatMessages.appendChild(item);
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+      }
+
+      function addFileMessage(author, attachment, isOwn = false) {
+        const item = document.createElement('div');
+        item.className = `chat-message file-message${isOwn ? ' own' : ''}`;
+
+        const authorEl = document.createElement('div');
+        authorEl.className = 'chat-author';
+        authorEl.textContent = author;
+
+        const card = document.createElement('a');
+        card.className = 'file-link';
+        card.href = buildAttachmentUrl(attachment.download_url);
+        card.target = '_blank';
+        card.rel = 'noreferrer';
+
+        const icon = document.createElement('div');
+        icon.className = 'file-link-icon';
+        icon.innerHTML = '<img src="/static/icons/attachment.png" alt="" />';
+
+        const meta = document.createElement('div');
+        meta.className = 'file-link-meta';
+        meta.innerHTML = `
+          <div class="file-link-name">${escapeHtml(attachment.file_name || 'Файл')}</div>
+          <div class="file-link-size">${formatFileSize(attachment.size_bytes || 0)}</div>
+        `;
+
+        card.appendChild(icon);
+        card.appendChild(meta);
+
+        item.appendChild(authorEl);
+        item.appendChild(card);
+        chatMessages.appendChild(item);
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+      }
+
+      function updatePrejoinButtons() {
+        prejoinAudioBtn.classList.toggle('active', micEnabled);
+        prejoinAudioBtn.classList.toggle('inactive', !micEnabled);
+        prejoinAudioLabel.textContent = micEnabled ? 'Микрофон включён' : 'Микрофон выключен';
+        prejoinVideoBtn.classList.toggle('active', cameraEnabled);
+        prejoinVideoBtn.classList.toggle('inactive', !cameraEnabled);
+        prejoinVideoLabel.textContent = cameraEnabled ? 'Камера включена' : 'Камера выключена';
+      }
+
+      function updateLiveButtons() {
+        micBtn.classList.toggle('is-off', !micEnabled);
+        cameraBtn.classList.toggle('is-off', !cameraEnabled);
+      }
+
+      function updateAllControlButtons() {
+        updatePrejoinButtons();
+        updateLiveButtons();
+        updatePreviewAvatar();
+      }
+
+      async function sendSystemData(payload) {
+        if (!room) return;
+        const encoded = new TextEncoder().encode(JSON.stringify(payload));
+        await room.localParticipant.publishData(encoded, { reliable: true });
+      }
+
+      async function persistChatMessage(text) {
+        const inviteToken = getInviteToken();
+        if (!inviteToken) return;
+        await fetch(`/api/calls/${encodeURIComponent(roomName)}/chat-events`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            invite_token: inviteToken,
+            display_name: displayNameInput.value.trim() || 'Участник',
+            text,
+          }),
+        });
+      }
+
+      async function sendChatMessage() {
+        if (!room) return;
+        const text = chatInput.value.trim();
+        if (!text) return;
+        try {
+          try {
+            await persistChatMessage(text);
+          } catch (error) {
+            console.warn('Не удалось сохранить сообщение для Telegram-алерта', error);
+          }
+          await sendSystemData({ type: 'chat', text, created_at: Date.now() });
+          addChatMessage(`${displayNameInput.value.trim()} (ты)`, text, true);
+          chatInput.value = '';
+          chatInput.focus();
+        } catch (error) {
+          showToast(error.message || 'Не удалось отправить сообщение', 'error');
+        }
+      }
+
+
+      async function uploadAttachment(file) {
+        if (!room) {
+          showToast('Сначала войди в звонок', 'error');
+          return;
+        }
+        if (!file) return;
+        if (file.size > maxAttachmentSizeBytes) {
+          showToast(`Максимальный размер файла — ${maxAttachmentSizeMb} МБ`, 'error');
+          return;
+        }
+
+        const inviteToken = getInviteToken();
+        if (!inviteToken) {
+          showToast('Не найден invite token', 'error');
+          return;
+        }
+
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('display_name', displayNameInput.value.trim() || 'Участник');
+        setButtonLoading(attachmentBtn, true, 'Загружаем...', '');
+
+        try {
+          const response = await fetch(`/api/calls/${encodeURIComponent(roomName)}/attachments?invite_token=${encodeURIComponent(inviteToken)}`, {
+            method: 'POST',
+            body: formData,
+          });
+          if (!response.ok) {
+            const error = await response.json().catch(() => ({}));
+            throw new Error(error.detail || 'Не удалось загрузить файл');
+          }
+          const attachment = await response.json();
+          addFileMessage(`${displayNameInput.value.trim()} (ты)`, attachment, true);
+          await sendSystemData({ type: 'file', attachment, created_at: Date.now() });
+          showToast('Файл отправлен', 'success');
+        } catch (error) {
+          showToast(error.message || 'Не удалось загрузить файл', 'error');
+        } finally {
+          setButtonLoading(attachmentBtn, false, 'Загружаем...', '');
+          attachmentBtn.disabled = !room;
+          attachmentInput.value = '';
+          hideDropzone();
+        }
+      }
+
+      function showDropzone() {
+        chatDropzone.classList.remove('hidden');
+        chatDropzone.classList.add('is-active');
+      }
+
+      function hideDropzone() {
+        chatDropzone.classList.add('hidden');
+        chatDropzone.classList.remove('is-active');
+      }
+
+      async function joinCall({ silentRestore = false, reconnectMode = false } = {}) {
+        clearJoinErrors();
+        const displayName = displayNameInput.value.trim();
+        const roomPassword = roomPasswordInput.value.trim();
+        const inviteToken = getInviteToken();
+        const savedSession = loadCallSession();
+
+        if (!displayName) {
+          setFieldError(displayNameInput, displayNameError, 'Введи имя');
+          if (!silentRestore) showToast('Введи имя', 'error');
+          return;
+        }
+        if (!inviteToken) {
+          setJoinError('В ссылке нет invite token');
+          if (!silentRestore) showToast('В ссылке нет invite token', 'error');
+          return;
+        }
+
+        if (reconnectMode) {
+          reconnectInProgress = true;
+          setControlsDisabled(true);
+          showReconnectBanner('Переподключаем…', { loading: true, showRetry: false });
+          setStatus('переподключение...', 'reconnecting');
+        } else {
+          setButtonLoading(joinBtn, true, silentRestore ? 'Восстанавливаем...' : 'Подключаем...', 'Войти в звонок');
+          setStatus(silentRestore ? 'восстановление соединения...' : 'получение токена...', silentRestore ? 'reconnecting' : '');
+        }
+
+        try {
+          const response = await fetch(`/api/calls/${encodeURIComponent(roomName)}/join`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              invite_token: inviteToken,
+              display_name: displayName,
+              password: roomPassword,
+              with_video: cameraEnabled,
+              with_audio: micEnabled,
+              identity: savedSession?.identity || null,
+            }),
+          });
+
+          if (!response.ok) {
+            const error = await response.json().catch(() => ({}));
+            throw new Error(error.detail || 'Не удалось войти в комнату');
+          }
+
+          const data = await response.json();
+          saveCallSession({
+            roomName,
+            inviteToken,
+            displayName: data.display_name,
+            identity: data.identity,
+            roomPassword,
+            micEnabled,
+            cameraEnabled,
+          });
+
+          await stopPrejoinPreview();
+          room = new LivekitClient.Room({ adaptiveStream: true, dynacast: true });
+
+          room
+            .on(LivekitClient.RoomEvent.TrackSubscribed, (track, publication, participant) => {
+              attachTrack(track, participant.identity, participant.name || participant.identity, false);
+              refreshRemoteParticipantMedia(participant);
+            })
+            .on(LivekitClient.RoomEvent.TrackUnsubscribed, (track, publication, participant) => {
+              track.detach().forEach((el) => el.remove());
+              if (participant) refreshRemoteParticipantMedia(participant);
+            })
+            .on(LivekitClient.RoomEvent.LocalTrackPublished, (publication) => {
+              if (publication.track) attachTrack(publication.track, room.localParticipant.identity, `${displayName} (ты)`, true);
+            })
+            .on(LivekitClient.RoomEvent.LocalTrackUnpublished, (publication) => {
+              if (publication.track) publication.track.detach().forEach((el) => el.remove());
+              showAvatar(room.localParticipant.identity, `${displayName} (ты)`);
+            })
+            .on(LivekitClient.RoomEvent.ParticipantConnected, (participant) => {
+              if (!reconnectInProgress) {
+                showAvatar(participant.identity, participant.name || participant.identity);
+                addChatMessage('Система', `${participant.name || participant.identity} вошёл в комнату`);
+              }
+            })
+            .on(LivekitClient.RoomEvent.ParticipantDisconnected, (participant) => {
+              detachParticipant(participant.identity);
+              addChatMessage('Система', `${participant.name || participant.identity} вышел из комнаты`);
+            })
+            .on(LivekitClient.RoomEvent.ActiveSpeakersChanged, (speakers) => {
+              updateSpeakingIndicators(speakers);
+            })
+            .on(LivekitClient.RoomEvent.ConnectionQualityChanged, (quality, participant) => {
+              if (!participant || participant.isLocal || participant.identity === room.localParticipant.identity) {
+                const indicator = document.getElementById('connection-indicator');
+                if (!indicator) return;
+                indicator.classList.remove('excellent', 'good', 'poor');
+                if (quality === LivekitClient.ConnectionQuality.Excellent) indicator.classList.add('excellent');
+                else if (quality === LivekitClient.ConnectionQuality.Good) indicator.classList.add('good');
+                else indicator.classList.add('poor');
+              }
+            })
+            .on(LivekitClient.RoomEvent.DataReceived, async (payload, participant) => {
+              try {
+                const raw = new TextDecoder().decode(payload);
+                const data = JSON.parse(raw);
+                if (data.type === 'chat' && data.text) {
+                  const author = participant?.name || participant?.identity || 'Участник';
+                  addChatMessage(author, data.text, false);
+                }
+                if (data.type === 'file' && data.attachment) {
+                  const author = participant?.name || participant?.identity || 'Участник';
+                  addFileMessage(author, data.attachment, false);
+                }
+                if (data.type === 'call-finished') {
+                  showToast('Звонок завершён', 'info');
+                  addChatMessage('Система', 'Создатель завершил звонок');
+                  await leaveCall({ silent: true, preserveSession: false });
+                  window.location.href = "/";
+                }
+              } catch (error) {
+                console.error('Не удалось обработать сообщение', error);
+              }
+            })
+            .on(LivekitClient.RoomEvent.Disconnected, async () => {
+              const wasIntentional = intentionalDisconnect;
+              const hasSavedSession = !!loadCallSession();
+              room = null;
+              leaveBtn.disabled = true;
+              micBtn.disabled = true;
+              cameraBtn.disabled = true;
+              chatInput.disabled = true;
+              chatSendBtn.disabled = true;
+              attachmentBtn.disabled = true;
+              setButtonLoading(finishBtn, false, 'Завершаем...', 'Завершить');
+              finishBtn.disabled = true;
+              copyInviteBtn.disabled = true;
+              setButtonLoading(joinBtn, false, 'Подключаем...', 'Войти в звонок');
+              joinBtn.disabled = false;
+              videos.innerHTML = '';
+              updateVideoLayout();
+              stopTimer();
+
+              if (!wasIntentional && hasSavedSession) {
+                showMeetingScreen();
+                showReconnectBanner('Переподключаем…', { loading: true, showRetry: false });
+                setStatus('соединение потеряно, пытаемся восстановить...', 'reconnecting');
+                handleReconnect();
+                return;
+              }
+
+              hideReconnectBanner();
+              showPrejoinScreen();
+              setControlsDisabled(false);
+              setStatus('отключён');
+              updateAllControlButtons();
+              await refreshPrejoinPreview();
+              intentionalDisconnect = false;
+            });
+
+          await room.connect(data.server_url, data.participant_token, {
+            autoSubscribe: true,
+            audioCaptureDefaults: {
+              autoGainControl: true,
+              echoCancellation: true,
+              noiseSuppression: true,
+            },
+          });
+
+          setStatus('подключён', 'success');
+          await room.localParticipant.setMicrophoneEnabled(micEnabled);
+          await room.localParticipant.setCameraEnabled(cameraEnabled);
+          attachExistingLocalTracks(displayName);
+          room.remoteParticipants.forEach((participant) => refreshRemoteParticipantMedia(participant));
+          leaveBtn.disabled = false;
+          micBtn.disabled = false;
+          cameraBtn.disabled = false;
+          chatInput.disabled = false;
+          chatSendBtn.disabled = false;
+          attachmentBtn.disabled = false;
+          finishBtn.disabled = false;
+          copyInviteBtn.disabled = false;
+          setButtonLoading(joinBtn, false, 'Подключаем...', 'Войти в звонок');
+          joinBtn.disabled = true;
+          setParticipantMicState(room.localParticipant.identity, micEnabled);
+          setParticipantCamState(room.localParticipant.identity, cameraEnabled);
+          if (!silentRestore && !reconnectMode) addChatMessage('Система', 'Ты подключился к комнате');
+          startTimer();
+          updateAllControlButtons();
+          showMeetingScreen();
+          hideReconnectBanner();
+          setControlsDisabled(false);
+          reconnectInProgress = false;
+          activeReconnectAttempt = 0;
+          if (reconnectMode) showToast('Соединение восстановлено', 'success');
+        } catch (error) {
+          console.error(error);
+          setStatus('ошибка', 'error');
+          setButtonLoading(joinBtn, false, 'Подключаем...', 'Войти в звонок');
+          joinBtn.disabled = false;
+          if (hasPassword && /пароль/i.test(error.message || '')) {
+            setFieldError(roomPasswordInput, roomPasswordError, error.message || 'Неверный пароль');
+          } else if (!silentRestore) {
+            setJoinError(error.message || 'Не удалось подключиться');
+          }
+          if (reconnectMode) {
+            reconnectInProgress = false;
+            showReconnectBanner('Не удалось переподключиться', { loading: false, showRetry: true });
+            setControlsDisabled(false);
+          } else if (!silentRestore) {
+            showToast(error.message || 'Не удалось подключиться', 'error');
+          }
+          await refreshPrejoinPreview();
+        } finally {
+          isRestoringSession = false;
+        }
+      }
+
+      async function handleReconnect() {
+        if (reconnectInProgress) return;
+        reconnectInProgress = true;
+        activeReconnectAttempt += 1;
+        const attemptId = activeReconnectAttempt;
+        const saved = loadCallSession();
+        if (!saved) {
+          reconnectInProgress = false;
+          hideReconnectBanner();
+          return;
+        }
+        displayNameInput.value = saved.displayName || displayNameInput.value;
+        roomPasswordInput.value = saved.roomPassword || '';
+        micEnabled = saved.micEnabled ?? true;
+        cameraEnabled = saved.cameraEnabled ?? true;
+        updateAllControlButtons();
+        showReconnectBanner('Переподключаем…', { loading: true, showRetry: false });
+        try {
+          await joinCall({ silentRestore: true, reconnectMode: true });
+        } finally {
+          if (attemptId === activeReconnectAttempt) reconnectInProgress = false;
+        }
+      }
+
+      async function leaveCall({ silent = false, preserveSession = false } = {}) {
+        if (!preserveSession) clearCallSession();
+        intentionalDisconnect = true;
+        if (!room) {
+          showPrejoinScreen();
+          if (!silent) await refreshPrejoinPreview();
+          return;
+        }
+        room.disconnect();
+        room = null;
+        videos.innerHTML = '';
+        updateVideoLayout();
+        setStatus(silent ? 'звонок завершён' : 'выход из комнаты', silent ? 'success' : '');
+        leaveBtn.disabled = true;
+        micBtn.disabled = true;
+        cameraBtn.disabled = true;
+        setButtonLoading(finishBtn, false, 'Завершаем...', 'Завершить');
+        finishBtn.disabled = true;
+        copyInviteBtn.disabled = true;
+        chatInput.disabled = true;
+        chatSendBtn.disabled = true;
+        attachmentBtn.disabled = true;
+        setButtonLoading(joinBtn, false, 'Подключаем...', 'Войти в звонок');
+        joinBtn.disabled = false;
+        stopTimer();
+        hideReconnectBanner();
+        showPrejoinScreen();
+        setControlsDisabled(false);
+        updateAllControlButtons();
+        await refreshPrejoinPreview();
+        intentionalDisconnect = false;
+      }
+
+      async function finishCall() {
+        const inviteToken = getInviteToken();
+        if (!inviteToken) {
+          showToast('Не найден invite token', 'error');
+          return;
+        }
+        setButtonLoading(finishBtn, true, 'Завершаем...', 'Завершить');
+        try {
+          if (room) {
+            await sendSystemData({ type: 'call-finished' });
+          }
+          const response = await fetch(`/api/calls/${encodeURIComponent(roomName)}/finish`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ invite_token: inviteToken }),
+          });
+          if (!response.ok) {
+            const error = await response.json().catch(() => ({}));
+            throw new Error(error.detail || 'Не удалось завершить звонок');
+          }
+          showToast('Звонок завершён', 'success');
+          await leaveCall({ silent: true, preserveSession: false });
+          window.location.href = "/";
+        } catch (error) {
+          setButtonLoading(finishBtn, false, 'Завершаем...', 'Завершить');
+          showToast(error.message || 'Не удалось завершить звонок', 'error');
+        }
+      }
+
+      async function toggleMicrophone() {
+        if (!room) return;
+        try {
+          micEnabled = !micEnabled;
+          await room.localParticipant.setMicrophoneEnabled(micEnabled);
+          setParticipantMicState(room.localParticipant.identity, micEnabled);
+          updateSavedSession({ micEnabled });
+          updateAllControlButtons();
+        } catch (error) {
+          micEnabled = !micEnabled;
+          updateAllControlButtons();
+          showToast(error.message || 'Не удалось переключить микрофон', 'error');
+        }
+      }
+
+      async function toggleCamera() {
+        if (!room) return;
+        try {
+          cameraEnabled = !cameraEnabled;
+          await room.localParticipant.setCameraEnabled(cameraEnabled);
+          if (cameraEnabled) attachExistingLocalTracks(displayNameInput.value.trim() || 'Ты');
+          else showAvatar(room.localParticipant.identity, `${displayNameInput.value.trim() || 'Ты'} (ты)`);
+          setParticipantCamState(room.localParticipant.identity, cameraEnabled);
+          updateSavedSession({ cameraEnabled });
+          updateAllControlButtons();
+        } catch (error) {
+          cameraEnabled = !cameraEnabled;
+          updateAllControlButtons();
+          showToast(error.message || 'Не удалось переключить камеру', 'error');
+        }
+      }
+
+      prejoinAudioBtn.addEventListener('click', async () => {
+        micEnabled = !micEnabled;
+        updateAllControlButtons();
+        await refreshPrejoinPreview();
+      });
+
+      prejoinVideoBtn.addEventListener('click', async () => {
+        cameraEnabled = !cameraEnabled;
+        updateAllControlButtons();
+        await refreshPrejoinPreview();
+      });
+
+      displayNameInput.addEventListener('input', () => {
+        setFieldError(displayNameInput, displayNameError, '');
+        setJoinError('');
+        updatePreviewAvatar();
+      });
+
+      roomPasswordInput.addEventListener('input', () => setFieldError(roomPasswordInput, roomPasswordError, ''));
+      joinBtn.addEventListener('click', () => joinCall());
+      leaveBtn.addEventListener('click', async () => {
+        setButtonLoading(leaveBtn, true, 'Выходим...', 'Выйти');
+        await leaveCall();
+        setButtonLoading(leaveBtn, false, 'Выходим...', 'Выйти');
+      });
+      finishBtn.addEventListener('click', finishCall);
+      copyInviteBtn.addEventListener('click', copyInviteLink);
+      retryReconnectBtn.addEventListener('click', async () => {
+        setButtonLoading(retryReconnectBtn, true, 'Пробуем снова...', 'Повторить');
+        await handleReconnect();
+        setButtonLoading(retryReconnectBtn, false, 'Пробуем снова...', 'Повторить');
+      });
+      micBtn.addEventListener('click', toggleMicrophone);
+      cameraBtn.addEventListener('click', toggleCamera);
+      attachmentBtn.addEventListener('click', () => attachmentInput.click());
+      attachmentInput.addEventListener('change', async (event) => {
+        const [file] = event.target.files || [];
+        if (file) await uploadAttachment(file);
+      });
+
+      chatDropzone.addEventListener('click', () => attachmentInput.click());
+
+      ['dragenter', 'dragover'].forEach((eventName) => {
+        window.addEventListener(eventName, (event) => {
+          const hasFiles = Array.from(event.dataTransfer?.types || []).includes('Files');
+          if (!hasFiles) return;
+          event.preventDefault();
+          if (room) showDropzone();
+        });
+      });
+
+      ['dragleave', 'dragend'].forEach((eventName) => {
+        window.addEventListener(eventName, (event) => {
+          if (!chatDropzone.classList.contains('hidden') && (!event.relatedTarget || !chatCard.contains(event.relatedTarget))) {
+            hideDropzone();
+          }
+        });
+      });
+
+      window.addEventListener('drop', async (event) => {
+        const files = Array.from(event.dataTransfer?.files || []);
+        if (!files.length) return;
+        event.preventDefault();
+        hideDropzone();
+        if (!room) {
+          showToast('Сначала войди в звонок', 'error');
+          return;
+        }
+        await uploadAttachment(files[0]);
+      });
+
+      chatSendBtn.addEventListener('click', async () => {
+        if (!chatInput.value.trim()) return;
+        setButtonLoading(chatSendBtn, true, 'Отправляем...', 'Отправить');
+        await sendChatMessage();
+        setButtonLoading(chatSendBtn, false, 'Отправляем...', 'Отправить');
+      });
+
+      chatInput.addEventListener('keydown', async (event) => {
+        if (event.key === 'Enter') {
+          event.preventDefault();
+          if (!chatInput.value.trim()) return;
+          setButtonLoading(chatSendBtn, true, 'Отправляем...', 'Отправить');
+          await sendChatMessage();
+          setButtonLoading(chatSendBtn, false, 'Отправляем...', 'Отправить');
+        }
+      });
+
+      window.addEventListener('scroll', updateBottomActionsVisibility, { passive: true });
+      window.addEventListener('resize', updateBottomActionsVisibility);
+
+      window.addEventListener('load', async () => {
+        setButtonLoading(joinBtn, false, 'Подключаем...', 'Войти в звонок');
+        setButtonLoading(finishBtn, false, 'Завершаем...', 'Завершить');
+        setButtonLoading(leaveBtn, false, 'Выходим...', 'Выйти');
+        setButtonLoading(chatSendBtn, false, 'Отправляем...', 'Отправить');
+        setButtonLoading(copyInviteBtn, false, 'Копируем...', 'Скопировать ссылку');
+        const saved = loadCallSession();
+        const inviteToken = getInviteToken();
+        if (saved && saved.roomName === roomName && saved.inviteToken === inviteToken) {
+          displayNameInput.value = saved.displayName || '';
+          roomPasswordInput.value = saved.roomPassword || '';
+          micEnabled = saved.micEnabled ?? true;
+          cameraEnabled = saved.cameraEnabled ?? true;
+          isRestoringSession = true;
+          updateAllControlButtons();
+          await joinCall({ silentRestore: true });
+          if (room) return;
+        }
+        updateAllControlButtons();
+        showPrejoinScreen();
+        updatePreviewAvatar();
+        await refreshPrejoinPreview();
+      });
+
+      window.addEventListener('beforeunload', () => {
+        stopPrejoinPreview();
+      });
+    </script>
+  </body>
+</html>
