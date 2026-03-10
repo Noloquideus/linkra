@@ -1,11 +1,12 @@
 services:
+
   livekit:
     image: livekit/livekit-server:latest
     command: --config /etc/livekit.yaml
     ports:
-      - "18080:7880"
-      - "18081:7881"
-      - "17882:7882/udp"
+      - "7880:7880"
+      - "7881:7881"
+      - "7882:7882/udp"
     volumes:
       - ./livekit.yaml:/etc/livekit.yaml:ro
     restart: unless-stopped
@@ -13,20 +14,27 @@ services:
   backend:
     build: ./backend
     environment:
-      APP_BASE_URL: https://pc.tail5857d2.ts.net
+      APP_BASE_URL: https://call.elcsa.online
       LIVEKIT_URL: ws://livekit:7880
-      LIVEKIT_PUBLIC_URL: wss://pc.tail5857d2.ts.net:8443
+      LIVEKIT_PUBLIC_URL: wss://call.elcsa.online
       LIVEKIT_API_KEY: devkey
       LIVEKIT_API_SECRET: supersecretkey_supersecretkey_1234
       CALL_TOKEN_TTL_HOURS: 2
       ROOM_EMPTY_TIMEOUT_SECONDS: 600
-      CORS_ALLOW_ORIGINS: https://pc.tail5857d2.ts.net
-      TELEGRAM_ALERTING_ENABLED: true
-      TELEGRAM_BOT_TOKEN: 8299710711:AAFoAXRsV-CMlo5OnJeITiMWgKsTvetB2M8
-      TELEGRAM_CHAT_ID: -1003333378268
-      TELEGRAM_TOPIC_ID: 2
+      CORS_ALLOW_ORIGINS: https://call.elcsa.online
     ports:
       - "18000:8000"
     depends_on:
       - livekit
+    restart: unless-stopped
+
+  coturn:
+    image: coturn/coturn
+    command: -n --log-file=stdout
+    ports:
+      - "3478:3478"
+      - "3478:3478/udp"
+      - "49160-49200:49160-49200/udp"
+    volumes:
+      - ./turnserver.conf:/etc/coturn/turnserver.conf
     restart: unless-stopped
