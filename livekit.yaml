@@ -11,8 +11,8 @@ rtc:
   udp_port: 7882
   use_external_ip: true
 
-  stun_servers:
-    - stun:stun.l.google.com:19302
+  #stun_servers:
+   # - stun:stun.l.google.com:19302
 
 turn:
   enabled: false
