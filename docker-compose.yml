@@ -32,3 +32,7 @@ services:
         condition: service_healthy
     networks:
       - linkra_net
+
+networks:
+  linkra_net:
+    driver: bridge
