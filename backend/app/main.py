@@ -36,6 +36,10 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 settings.uploads_path.mkdir(parents=True, exist_ok=True)
 
 
+def public_app_url() -> str:
+    return settings.app_base_url.strip().rstrip('/')
+
+
 def render_call_error(
     request: Request,
     *,
@@ -51,6 +55,7 @@ def render_call_error(
         "call_error.html",
         {
             "request": request,
+            "app_base_url": public_app_url(),
             "page_title": page_title,
             "heading": heading,
             "message": message,
@@ -273,6 +278,7 @@ def home(request: Request):
         "index.html",
         {
             "request": request,
+            "app_base_url": public_app_url(),
             "telegram_alerting_available": settings.telegram_alerting_available,
         },
     )
@@ -330,6 +336,7 @@ def call_page(request: Request, room_name: str, invite: str | None = Query(defau
         "call.html",
         {
             "request": request,
+            "app_base_url": public_app_url(),
             "room_name": room_name,
             "room_title": call.room_title,
             "has_password": bool(call.password),

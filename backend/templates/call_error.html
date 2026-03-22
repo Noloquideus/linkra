@@ -4,6 +4,18 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>{{ page_title }}</title>
+    <meta name="description" content="{{ message|truncate(200) }}" />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="{{ request.url }}" />
+    <meta property="og:title" content="{{ page_title }} · Linkra" />
+    <meta property="og:description" content="{{ message|truncate(200) }}" />
+    <meta property="og:site_name" content="Linkra" />
+    <meta property="og:locale" content="ru_RU" />
+    <meta property="og:image" content="{{ app_base_url }}/static/icons/favicon.png" />
+    <meta name="twitter:card" content="summary" />
+    <meta name="twitter:title" content="{{ page_title }} · Linkra" />
+    <meta name="twitter:description" content="{{ message|truncate(200) }}" />
+    <meta name="twitter:image" content="{{ app_base_url }}/static/icons/favicon.png" />
     <link rel="icon" type="image/png" href="/static/icons/favicon.png" />
     <link rel="icon" href="/static/favicon.ico" sizes="any" />
     <link rel="stylesheet" href="/static/style.css" />

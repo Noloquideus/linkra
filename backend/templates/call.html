@@ -4,6 +4,18 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>{{ room_title }}</title>
+    <meta name="description" content="Приглашение в комнату «{{ room_title }}»: видеозвон, чат и демонстрация экрана в браузере." />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="{{ request.url }}" />
+    <meta property="og:title" content="{{ room_title }} · Видеозвон · Linkra" />
+    <meta property="og:description" content="Тебя пригласили в комнату «{{ room_title }}». Подключайся в браузере: камера, микрофон и чат." />
+    <meta property="og:site_name" content="Linkra" />
+    <meta property="og:locale" content="ru_RU" />
+    <meta property="og:image" content="{{ app_base_url }}/static/icons/favicon.png" />
+    <meta name="twitter:card" content="summary" />
+    <meta name="twitter:title" content="{{ room_title }} · Видеозвон · Linkra" />
+    <meta name="twitter:description" content="Тебя пригласили в комнату «{{ room_title }}». Подключайся в браузере." />
+    <meta name="twitter:image" content="{{ app_base_url }}/static/icons/favicon.png" />
     <link rel="icon" type="image/png" href="/static/icons/favicon.png" />
     <link rel="icon" href="/static/favicon.ico" sizes="any" />
     <link rel="stylesheet" href="/static/style.css" />
