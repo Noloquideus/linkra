@@ -12,6 +12,11 @@ services:
       - ./livekit.yaml:/etc/livekit.yaml:ro
     networks:
       - linkra_net
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:7880"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
 
   backend:
     build:
@@ -23,10 +28,7 @@ services:
     ports:
       - "127.0.0.1:8000:8000"
     depends_on:
-      - livekit
+      livekit:
+        condition: service_healthy
     networks:
       - linkra_net
-
-networks:
-  linkra_net:
-    driver: bridge
