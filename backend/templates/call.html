@@ -7,7 +7,7 @@
     <link rel="icon" type="image/png" href="/static/icons/favicon.png" />
     <link rel="icon" href="/static/favicon.ico" sizes="any" />
     <link rel="stylesheet" href="/static/style.css" />
-    <script src="https://cdn.jsdelivr.net/npm/livekit-client/dist/livekit-client.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/livekit-client@2.9.1/dist/livekit-client.umd.min.js"></script>
   </head>
   <body>
     <div id="toast-stack" class="toast-stack"></div>
@@ -126,6 +126,17 @@
                 <img class="icon icon-cam-off" src="/static/icons/camera_off.png" alt="" />
               </button>
 
+              <button id="screen-btn" class="icon-btn is-off" disabled aria-label="Демонстрация экрана" type="button">
+                <svg class="icon-svg icon-screen-on" viewBox="0 0 24 24" aria-hidden="true">
+                  <rect x="3" y="4" width="18" height="12" rx="2" fill="none" stroke="currentColor" stroke-width="1.75" />
+                  <path d="M8 20h8M12 16v4" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" />
+                </svg>
+                <svg class="icon-svg icon-screen-off" viewBox="0 0 24 24" aria-hidden="true">
+                  <rect x="3" y="4" width="18" height="12" rx="2" fill="none" stroke="currentColor" stroke-width="1.75" opacity="0.45" />
+                  <path d="M5 5l14 14M8 20h8M12 16v4" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" />
+                </svg>
+              </button>
+
               <div id="call-timer" class="meeting-timer">00:00</div>
 
               <button id="copy-invite-btn" class="btn secondary invite-inline-btn" disabled>Скопировать ссылку</button>
@@ -185,6 +196,7 @@
       const callActionsTrigger = document.getElementById('call-actions-trigger');
       const micBtn = document.getElementById('mic-btn');
       const cameraBtn = document.getElementById('camera-btn');
+      const screenBtn = document.getElementById('screen-btn');
       const prejoinAudioBtn = document.getElementById('prejoin-audio-btn');
       const prejoinVideoBtn = document.getElementById('prejoin-video-btn');
       const prejoinAudioLabel = document.getElementById('prejoin-audio-label');
@@ -370,7 +382,7 @@
 
       function setControlsDisabled(disabled) {
         pageRoot.classList.toggle('page-controls-disabled', disabled);
-        [leaveBtn, micBtn, cameraBtn, chatInput, chatSendBtn, finishBtn, copyInviteBtn, attachmentBtn].forEach((el) => {
+        [leaveBtn, micBtn, cameraBtn, screenBtn, chatInput, chatSendBtn, finishBtn, copyInviteBtn, attachmentBtn].forEach((el) => {
           if (!el) return;
           el.disabled = disabled;
         });
@@ -589,8 +601,11 @@
                 </span>
               </div>
             </div>
-            <div class="media-slot">
-              <div class="avatar-placeholder"></div>
+            <div class="video-tile-body">
+              <div class="screen-slot"></div>
+              <div class="media-slot">
+                <div class="avatar-placeholder"></div>
+              </div>
             </div>
           `;
           videos.appendChild(tile);
@@ -613,39 +628,126 @@
         tile.classList.toggle('cam-muted', !isEnabled);
       }
 
+      function getLocalParticipantLabel() {
+        return `${displayNameInput.value.trim() || 'Ты'} (ты)`;
+      }
+
+      function resolvePublicationSource(trackSource, track) {
+        let src = trackSource;
+        if ((src == null || src === '') && track && track.source) src = track.source;
+        return src;
+      }
+
+      function enumSource(name) {
+        const S = LivekitClient.Track && LivekitClient.Track.Source;
+        return S ? S[name] : null;
+      }
+
+      function isScreenShareSource(src) {
+        return src === 'screen_share' || src === enumSource('ScreenShare');
+      }
+
+      function isScreenAudioSource(src) {
+        return src === 'screen_share_audio' || src === enumSource('ScreenShareAudio');
+      }
+
+      function isCameraSource(src, track) {
+        if (track && track.kind !== 'video') return false;
+        return src === 'camera' || src === enumSource('Camera') || (track && track.kind === 'video' && !isScreenShareSource(src));
+      }
+
+      function isMicrophoneSource(src, track) {
+        if (track && track.kind !== 'audio') return false;
+        return src === 'microphone' || src === enumSource('Microphone') || (track && track.kind === 'audio' && !isScreenAudioSource(src));
+      }
+
+      function isLocalScreenSharing() {
+        if (!room) return false;
+        let active = false;
+        room.localParticipant.trackPublications.forEach((pub) => {
+          if (isScreenShareSource(pub.source) && pub.track) active = true;
+        });
+        return active;
+      }
+
+      function updateParticipantIndicators(participant, label, isLocal) {
+        const tile = document.querySelector(`[data-participant="${participant.identity}"]`);
+        if (!tile) return;
+        let hasCameraVideo = false;
+        let hasMic = false;
+        let hasScreen = false;
+        participant.trackPublications.forEach((pub) => {
+          if (!pub.track) return;
+          const src = resolvePublicationSource(pub.source, pub.track);
+          if (pub.track.kind === 'video' && isScreenShareSource(src)) hasScreen = true;
+          if (pub.track.kind === 'video' && isCameraSource(src, pub.track)) hasCameraVideo = true;
+          if (pub.track.kind === 'audio' && isMicrophoneSource(src, pub.track)) hasMic = true;
+        });
+        if (!hasCameraVideo) showAvatar(participant.identity, label);
+        if (isLocal) {
+          setParticipantMicState(participant.identity, micEnabled);
+          setParticipantCamState(participant.identity, hasCameraVideo);
+        } else {
+          setParticipantMicState(participant.identity, hasMic);
+          setParticipantCamState(participant.identity, hasCameraVideo);
+        }
+        tile.classList.toggle('has-screen', hasScreen);
+      }
+
       function showAvatar(participantIdentity, participantLabel) {
         const tile = participantTile(participantIdentity, participantLabel);
         const slot = tile.querySelector('.media-slot');
         const avatar = slot.querySelector('.avatar-placeholder');
-        slot.querySelectorAll('video').forEach((el) => el.remove());
+        slot.querySelectorAll('video[data-slot="camera"]').forEach((el) => el.remove());
         avatar.style.display = 'flex';
         setParticipantCamState(participantIdentity, false);
       }
 
-      function attachTrack(track, participantIdentity, participantLabel, isLocal = false) {
+      function attachTrack(track, participantIdentity, participantLabel, isLocal = false, trackSource = null) {
         const tile = participantTile(participantIdentity, participantLabel);
-        const slot = tile.querySelector('.media-slot');
-        const avatar = slot.querySelector('.avatar-placeholder');
+        const screenSlot = tile.querySelector('.screen-slot');
+        const mediaSlot = tile.querySelector('.media-slot');
+        const avatar = mediaSlot.querySelector('.avatar-placeholder');
+        const src = resolvePublicationSource(trackSource, track);
 
-        if (track.kind === 'video') slot.querySelectorAll('video').forEach((el) => el.remove());
         if (track.kind === 'audio') {
-          slot.querySelectorAll('audio').forEach((el) => el.remove());
           if (isLocal) return;
+          if (isScreenAudioSource(src)) {
+            mediaSlot.querySelectorAll('audio[data-slot="screen-audio"]').forEach((el) => el.remove());
+          } else {
+            mediaSlot.querySelectorAll('audio[data-slot="mic-audio"]').forEach((el) => el.remove());
+          }
+          const element = track.attach();
+          element.classList.add('hidden-audio');
+          element.dataset.slot = isScreenAudioSource(src) ? 'screen-audio' : 'mic-audio';
+          element.autoplay = true;
+          mediaSlot.appendChild(element);
+          return;
         }
 
-        const element = track.attach();
-        element.autoplay = true;
-        element.playsInline = true;
-        if (track.kind === 'audio') element.classList.add('hidden-audio');
         if (track.kind === 'video') {
-          avatar.style.display = 'none';
-          setParticipantCamState(participantIdentity, true);
+          const isScreen = isScreenShareSource(src);
+          const slot = isScreen ? screenSlot : mediaSlot;
+          if (isScreen) {
+            screenSlot.querySelectorAll('video[data-slot="screen"]').forEach((el) => el.remove());
+          } else {
+            mediaSlot.querySelectorAll('video[data-slot="camera"]').forEach((el) => el.remove());
+          }
+          const element = track.attach();
+          element.autoplay = true;
+          element.playsInline = true;
+          element.dataset.slot = isScreen ? 'screen' : 'camera';
+          if (!isScreen) {
+            avatar.style.display = 'none';
+            setParticipantCamState(participantIdentity, true);
+          }
+          if (!isScreen && isLocal) {
+            element.classList.add('local-video');
+            element.muted = true;
+          }
+          if (isScreen) element.classList.add('screen-share-video');
+          slot.appendChild(element);
         }
-        if (track.kind === 'video' && isLocal) {
-          element.classList.add('local-video');
-          element.muted = true;
-        }
-        slot.appendChild(element);
       }
 
       function detachParticipant(identity) {
@@ -658,33 +760,23 @@
         if (!room) return;
         const localParticipant = room.localParticipant;
         const localLabel = `${displayName} (ты)`;
-        let hasLocalVideo = false;
         participantTile(localParticipant.identity, localLabel);
         localParticipant.trackPublications.forEach((publication) => {
           if (publication.track) {
-            attachTrack(publication.track, localParticipant.identity, localLabel, true);
-            if (publication.track.kind === 'video') hasLocalVideo = true;
+            attachTrack(publication.track, localParticipant.identity, localLabel, true, publication.source);
           }
         });
-        if (!hasLocalVideo) showAvatar(localParticipant.identity, localLabel);
-        setParticipantMicState(localParticipant.identity, micEnabled);
-        setParticipantCamState(localParticipant.identity, cameraEnabled && hasLocalVideo);
+        updateParticipantIndicators(localParticipant, localLabel, true);
       }
 
       function refreshRemoteParticipantMedia(participant) {
         const label = participant.name || participant.identity;
-        let hasVideo = false;
-        let hasAudio = false;
         participant.trackPublications.forEach((publication) => {
           if (publication.track) {
-            attachTrack(publication.track, participant.identity, label, false);
-            if (publication.track.kind === 'video') hasVideo = true;
-            if (publication.track.kind === 'audio') hasAudio = true;
+            attachTrack(publication.track, participant.identity, label, false, publication.source);
           }
         });
-        if (!hasVideo) showAvatar(participant.identity, label);
-        setParticipantMicState(participant.identity, hasAudio);
-        setParticipantCamState(participant.identity, hasVideo);
+        updateParticipantIndicators(participant, label, false);
       }
 
       function updateSpeakingIndicators(speakers) {
@@ -756,6 +848,7 @@
       function updateLiveButtons() {
         micBtn.classList.toggle('is-off', !micEnabled);
         cameraBtn.classList.toggle('is-off', !cameraEnabled);
+        screenBtn.classList.toggle('is-off', !isLocalScreenSharing());
       }
 
       function updateAllControlButtons() {
@@ -922,19 +1015,30 @@
 
           room
             .on(LivekitClient.RoomEvent.TrackSubscribed, (track, publication, participant) => {
-              attachTrack(track, participant.identity, participant.name || participant.identity, false);
-              refreshRemoteParticipantMedia(participant);
+              const label = participant.name || participant.identity;
+              attachTrack(track, participant.identity, label, false, publication.source);
+              updateParticipantIndicators(participant, label, false);
             })
             .on(LivekitClient.RoomEvent.TrackUnsubscribed, (track, publication, participant) => {
               track.detach().forEach((el) => el.remove());
-              if (participant) refreshRemoteParticipantMedia(participant);
+              if (participant) {
+                const label = participant.name || participant.identity;
+                updateParticipantIndicators(participant, label, false);
+              }
             })
             .on(LivekitClient.RoomEvent.LocalTrackPublished, (publication) => {
-              if (publication.track) attachTrack(publication.track, room.localParticipant.identity, `${displayName} (ты)`, true);
+              if (!publication.track) return;
+              const label = getLocalParticipantLabel();
+              attachTrack(publication.track, room.localParticipant.identity, label, true, publication.source);
+              updateParticipantIndicators(room.localParticipant, label, true);
+              updateAllControlButtons();
             })
             .on(LivekitClient.RoomEvent.LocalTrackUnpublished, (publication) => {
               if (publication.track) publication.track.detach().forEach((el) => el.remove());
-              showAvatar(room.localParticipant.identity, `${displayName} (ты)`);
+              if (!room) return;
+              const label = getLocalParticipantLabel();
+              updateParticipantIndicators(room.localParticipant, label, true);
+              updateAllControlButtons();
             })
             .on(LivekitClient.RoomEvent.ParticipantConnected, (participant) => {
               if (!reconnectInProgress) {
@@ -988,6 +1092,7 @@
               leaveBtn.disabled = true;
               micBtn.disabled = true;
               cameraBtn.disabled = true;
+              screenBtn.disabled = true;
               chatInput.disabled = true;
               chatSendBtn.disabled = true;
               attachmentBtn.disabled = true;
@@ -1034,6 +1139,7 @@
           leaveBtn.disabled = false;
           micBtn.disabled = false;
           cameraBtn.disabled = false;
+          screenBtn.disabled = false;
           chatInput.disabled = false;
           chatSendBtn.disabled = false;
           attachmentBtn.disabled = false;
@@ -1115,6 +1221,7 @@
         leaveBtn.disabled = true;
         micBtn.disabled = true;
         cameraBtn.disabled = true;
+        screenBtn.disabled = true;
         setButtonLoading(finishBtn, false, 'Завершаем...', 'Завершить');
         finishBtn.disabled = true;
         copyInviteBtn.disabled = true;
@@ -1181,9 +1288,12 @@
         try {
           cameraEnabled = !cameraEnabled;
           await room.localParticipant.setCameraEnabled(cameraEnabled);
+          const label = getLocalParticipantLabel();
           if (cameraEnabled) attachExistingLocalTracks(displayNameInput.value.trim() || 'Ты');
-          else showAvatar(room.localParticipant.identity, `${displayNameInput.value.trim() || 'Ты'} (ты)`);
-          setParticipantCamState(room.localParticipant.identity, cameraEnabled);
+          else {
+            showAvatar(room.localParticipant.identity, label);
+            updateParticipantIndicators(room.localParticipant, label, true);
+          }
           updateSavedSession({ cameraEnabled });
           updateAllControlButtons();
         } catch (error) {
@@ -1191,6 +1301,17 @@
           updateAllControlButtons();
           showToast(error.message || 'Не удалось переключить камеру', 'error');
         }
+      }
+
+      async function toggleScreenShare() {
+        if (!room) return;
+        const wantOn = !isLocalScreenSharing();
+        try {
+          await room.localParticipant.setScreenShareEnabled(wantOn, { audio: true });
+        } catch (error) {
+          showToast(error.message || 'Не удалось переключить демонстрацию экрана', 'error');
+        }
+        updateAllControlButtons();
       }
 
       prejoinAudioBtn.addEventListener('click', async () => {
@@ -1227,6 +1348,7 @@
       });
       micBtn.addEventListener('click', toggleMicrophone);
       cameraBtn.addEventListener('click', toggleCamera);
+      screenBtn.addEventListener('click', toggleScreenShare);
       attachmentBtn.addEventListener('click', () => attachmentInput.click());
       attachmentInput.addEventListener('change', async (event) => {
         const [file] = event.target.files || [];

@@ -292,13 +292,22 @@ label span {
 }
 
 .icon-btn:not(.is-off) .icon-mic-on,
-.icon-btn:not(.is-off) .icon-cam-on {
+.icon-btn:not(.is-off) .icon-cam-on,
+.icon-btn:not(.is-off) .icon-screen-on {
   display: block;
 }
 
 .icon-btn.is-off .icon-mic-off,
-.icon-btn.is-off .icon-cam-off {
+.icon-btn.is-off .icon-cam-off,
+.icon-btn.is-off .icon-screen-off {
   display: block;
+}
+
+.icon-btn .icon-svg {
+  display: none;
+  width: 22px;
+  height: 22px;
+  color: #e2e8f0;
 }
 
 .icon-btn.is-off {
@@ -328,6 +337,8 @@ label span {
   border-radius: 18px;
   overflow: hidden;
   min-height: 420px;
+  display: flex;
+  flex-direction: column;
   transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
 }
 
@@ -387,7 +398,45 @@ label span {
   display: block;
 }
 
+.video-tile-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.screen-slot {
+  display: none;
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 280px;
+  background: #020617;
+  overflow: hidden;
+}
+
+.video-tile.has-screen .screen-slot {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.video-tile.has-screen .media-slot {
+  flex: 0 0 auto;
+  height: 200px;
+  min-height: 160px;
+  max-height: 240px;
+}
+
+.screen-slot .screen-share-video {
+  width: 100%;
+  height: 100%;
+  min-height: 260px;
+  object-fit: contain;
+  background: #000;
+}
+
 .media-slot {
+  flex: 1 1 auto;
   min-height: 360px;
   height: 560px;
   display: flex;
@@ -581,6 +630,16 @@ label span {
   .media-slot {
     height: 460px;
     min-height: 320px;
+  }
+
+  .video-tile.has-screen .media-slot {
+    height: 180px;
+    min-height: 140px;
+    max-height: 200px;
+  }
+
+  .screen-slot {
+    min-height: 220px;
   }
 
   .video-tile {
