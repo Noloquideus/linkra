@@ -7,7 +7,7 @@ from pathlib import Path
 from shutil import rmtree
 from uuid import uuid4
 
-from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
+from fastapi import FastAPI, File, Form, HTTPException, Query, Request, UploadFile
 from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -34,6 +34,32 @@ templates = Jinja2Templates(directory="templates")
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
 settings.uploads_path.mkdir(parents=True, exist_ok=True)
+
+
+def render_call_error(
+    request: Request,
+    *,
+    status_code: int,
+    page_title: str,
+    heading: str,
+    message: str,
+    error_code: str,
+    variant: str,
+    show_retry: bool = False,
+):
+    return templates.TemplateResponse(
+        "call_error.html",
+        {
+            "request": request,
+            "page_title": page_title,
+            "heading": heading,
+            "message": message,
+            "error_code": error_code,
+            "variant": variant,
+            "show_retry": show_retry,
+        },
+        status_code=status_code,
+    )
 
 
 def build_attachment_response(room_name: str, attachment: AttachmentRecord) -> AttachmentResponse:
@@ -252,11 +278,54 @@ def home(request: Request):
     )
 
 
+@app.get("/call/overloaded", response_class=HTMLResponse)
+def call_overloaded_page(request: Request):
+    return render_call_error(
+        request,
+        status_code=503,
+        page_title="Сервер перегружен",
+        heading="Сервис временно недоступен",
+        message="Сервер перегружен. Подождите немного и обновите страницу или зайдите позже.",
+        error_code="503",
+        variant="overloaded",
+        show_retry=True,
+    )
+
+
 @app.get("/call/{room_name}", response_class=HTMLResponse)
-def call_page(request: Request, room_name: str):
+def call_page(request: Request, room_name: str, invite: str | None = Query(default=None)):
+    invite_val = (invite or "").strip()
     call = store.get(room_name)
-    if call is None or not call.is_active:
-        raise HTTPException(status_code=404, detail="Call not found")
+    if call is None:
+        return render_call_error(
+            request,
+            status_code=404,
+            page_title="Комната не найдена",
+            heading="Комната не найдена",
+            message="Такой комнаты нет или ссылка устарела. Проверьте адрес или создайте новый звонок на главной странице.",
+            error_code="404",
+            variant="not_found",
+        )
+    if not call.is_active:
+        return render_call_error(
+            request,
+            status_code=410,
+            page_title="Звонок завершён",
+            heading="Звонок завершён",
+            message="Эта встреча уже закончена. Попросите организатора прислать новую ссылку.",
+            error_code="410",
+            variant="ended",
+        )
+    if invite_val and invite_val != call.invite_token:
+        return render_call_error(
+            request,
+            status_code=403,
+            page_title="Приглашение недействительно",
+            heading="Приглашение недействительно",
+            message="Ссылка приглашения недействительна или была заменена. Запросите новую ссылку у организатора.",
+            error_code="403",
+            variant="invalid_invite",
+        )
     return templates.TemplateResponse(
         "call.html",
         {

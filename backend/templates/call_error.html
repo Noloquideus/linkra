@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{{ page_title }}</title>
+    <link rel="icon" type="image/png" href="/static/icons/favicon.png" />
+    <link rel="icon" href="/static/favicon.ico" sizes="any" />
+    <link rel="stylesheet" href="/static/style.css" />
+  </head>
+  <body class="call-error-body">
+    <main class="container call-error-page">
+      <section class="card call-error-card call-error-card--{{ variant }}">
+        <div class="call-error-visual" aria-hidden="true">
+          {% if variant == 'not_found' %}
+          <svg class="call-error-svg" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="60" cy="60" r="52" stroke="currentColor" stroke-width="2" opacity="0.35" />
+            <path d="M48 48L72 72M72 48L48 72" stroke="currentColor" stroke-width="3" stroke-linecap="round" />
+            <circle cx="60" cy="60" r="28" stroke="currentColor" stroke-width="2" opacity="0.55" />
+          </svg>
+          {% elif variant == 'ended' %}
+          <svg class="call-error-svg" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <rect x="28" y="36" width="64" height="48" rx="12" stroke="currentColor" stroke-width="2" opacity="0.5" />
+            <path d="M44 84V92C44 96.4183 47.5817 100 52 100H68C72.4183 100 76 96.4183 76 92V84" stroke="currentColor" stroke-width="2" opacity="0.45" />
+            <path d="M52 52H68M52 64H62" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" opacity="0.7" />
+          </svg>
+          {% elif variant == 'invalid_invite' %}
+          <svg class="call-error-svg" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M40 80L80 40" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" opacity="0.4" />
+            <rect x="34" y="58" width="36" height="24" rx="4" stroke="currentColor" stroke-width="2" transform="rotate(-35 52 70)" />
+            <circle cx="78" cy="42" r="10" stroke="currentColor" stroke-width="2" />
+            <path d="M74 46L82 38" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+          </svg>
+          {% else %}
+          <svg class="call-error-svg" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <rect x="28" y="32" width="64" height="56" rx="8" stroke="currentColor" stroke-width="2" opacity="0.45" />
+            <rect x="40" y="44" width="16" height="20" rx="2" fill="currentColor" opacity="0.25" />
+            <rect x="64" y="44" width="16" height="12" rx="2" fill="currentColor" opacity="0.18" />
+            <path d="M36 96H84" stroke="currentColor" stroke-width="3" stroke-linecap="round" opacity="0.35" />
+            <circle cx="60" cy="22" r="6" fill="currentColor" opacity="0.5" />
+            <path d="M60 28V36" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+          </svg>
+          {% endif %}
+        </div>
+        <p class="call-error-code">{{ error_code }}</p>
+        <h1 class="call-error-heading">{{ heading }}</h1>
+        <p class="muted call-error-message">{{ message }}</p>
+        <div class="call-error-actions">
+          <a class="btn primary" href="/">На главную</a>
+          {% if show_retry %}
+          <button type="button" class="btn secondary" id="call-error-retry">Обновить страницу</button>
+          {% endif %}
+        </div>
+      </section>
+    </main>
+    {% if show_retry %}
+    <script>
+      document.getElementById('call-error-retry').addEventListener('click', function () {
+        location.reload();
+      });
+    </script>
+    {% endif %}
+  </body>
+</html>
