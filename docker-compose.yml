@@ -1,32 +1,32 @@
 services:
   livekit:
     image: livekit/livekit-server:latest
+    container_name: linkra-livekit
     command: --config /etc/livekit.yaml
+    restart: unless-stopped
     ports:
-      - "18080:7880"
-      - "18081:7881"
-      - "17882:7882/udp"
+      - "7881:7881/tcp"
+      - "7882:7882/udp"
+      - "127.0.0.1:7880:7880"
     volumes:
       - ./livekit.yaml:/etc/livekit.yaml:ro
-    restart: unless-stopped
+    networks:
+      - linkra_net
 
   backend:
-    build: ./backend
-    environment:
-      APP_BASE_URL: https://pc.tail5857d2.ts.net
-      LIVEKIT_URL: ws://livekit:7880
-      LIVEKIT_PUBLIC_URL: wss://pc.tail5857d2.ts.net:8443
-      LIVEKIT_API_KEY: devkey
-      LIVEKIT_API_SECRET: supersecretkey_supersecretkey_1234
-      CALL_TOKEN_TTL_HOURS: 2
-      ROOM_EMPTY_TIMEOUT_SECONDS: 600
-      CORS_ALLOW_ORIGINS: https://pc.tail5857d2.ts.net
-      TELEGRAM_ALERTING_ENABLED: true
-      TELEGRAM_BOT_TOKEN: 8299710711:AAFoAXRsV-CMlo5OnJeITiMWgKsTvetB2M8
-      TELEGRAM_CHAT_ID: -1003333378268
-      TELEGRAM_TOPIC_ID: 2
+    build:
+      context: ./backend
+    container_name: linkra-backend
+    restart: unless-stopped
+    env_file:
+      - .env
     ports:
-      - "18000:8000"
+      - "127.0.0.1:8000:8000"
     depends_on:
       - livekit
-    restart: unless-stopped
+    networks:
+      - linkra_net
+
+networks:
+  linkra_net:
+    driver: bridge
