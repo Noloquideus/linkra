@@ -1,5 +1,6 @@
 :root {
-  --bg: #0f172a;
+  --bg: #0c1222;
+  --bg-deep: #060910;
   --card: #111827;
   --line: #243041;
   --text: #f8fafc;
@@ -12,11 +13,21 @@
 
 * { box-sizing: border-box; }
 
+html {
+  background: var(--bg-deep);
+}
+
 body {
   margin: 0;
+  min-height: 100vh;
   font-family: Inter, Arial, sans-serif;
-  background: linear-gradient(180deg, #0b1220, #151922);
   color: var(--text);
+  background-color: var(--bg-deep);
+  background-image:
+    radial-gradient(ellipse 110% 75% at 50% -12%, rgba(37, 99, 235, 0.2), transparent 52%),
+    radial-gradient(ellipse 90% 55% at 92% 18%, rgba(59, 130, 246, 0.09), transparent 48%),
+    radial-gradient(ellipse 75% 45% at 6% 55%, rgba(30, 64, 175, 0.11), transparent 52%),
+    linear-gradient(168deg, var(--bg-deep) 0%, var(--bg) 38%, #131c2e 72%, #0f172a 100%);
 }
 
 .container {
