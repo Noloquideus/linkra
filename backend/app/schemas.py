@@ -14,6 +14,7 @@ class CreateCallResponse(BaseModel):
     room_title: str
     invite_token: str
     invite_link: str
+    short_invite_link: str
     has_password: bool = False
 
 

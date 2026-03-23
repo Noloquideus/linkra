@@ -70,11 +70,23 @@
 
         <div id="result" class="result hidden stack-lg">
           <div class="field-group">
-            <label for="invite-link">Ссылка приглашения</label>
+            <label for="invite-link">Полная ссылка приглашения</label>
             <input id="invite-link" type="text" readonly />
           </div>
 
           <button id="copy-link-btn" class="btn secondary copy-btn" type="button">Копировать</button>
+
+          <div class="field-group">
+            <label for="short-invite-link">Короткая ссылка</label>
+            <input id="short-invite-link" type="text" readonly />
+          </div>
+
+          <button id="copy-short-btn" class="btn secondary copy-short-btn" type="button">Копировать короткую</button>
+
+          <div class="invite-qr-section">
+            <div class="invite-qr-label muted">QR-код (короткая ссылка)</div>
+            <div id="invite-qr" class="invite-qr"></div>
+          </div>
 
           <p id="room-title-result" class="muted room-title-result"></p>
 
@@ -85,9 +97,11 @@
       </section>
     </main>
 
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <script>
       const createButton = document.getElementById('create-call-btn');
       const copyButton = document.getElementById('copy-link-btn');
+      const copyShortButton = document.getElementById('copy-short-btn');
       const result = document.getElementById('result');
       const createForm = document.getElementById('create-form');
       const inviteLinkInput = document.getElementById('invite-link');
@@ -97,6 +111,8 @@
       const roomPasswordError = document.getElementById('room-password-error');
       const roomTitleResult = document.getElementById('room-title-result');
       const openLink = document.getElementById('open-link');
+      const shortInviteLinkInput = document.getElementById('short-invite-link');
+      const inviteQrEl = document.getElementById('invite-qr');
       const toastStack = document.getElementById('toast-stack');
       const telegramAlertsInput = document.getElementById('telegram-alerts-input');
 
@@ -125,6 +141,7 @@
       roomTitleInput.addEventListener('input', () => setFieldError(roomTitleInput, roomTitleError, ''));
       roomPasswordInput.addEventListener('input', () => setFieldError(roomPasswordInput, roomPasswordError, ''));
       inviteLinkInput.addEventListener('click', () => inviteLinkInput.select());
+      shortInviteLinkInput.addEventListener('click', () => shortInviteLinkInput.select());
 
       createButton.addEventListener('click', async () => {
         clearErrors();
@@ -166,8 +183,23 @@
           const finalRoomTitle = data.room_title || roomTitle || 'Без названия';
 
           inviteLinkInput.value = data.invite_link;
+          shortInviteLinkInput.value = data.short_invite_link || '';
           openLink.href = data.invite_link;
           roomTitleResult.textContent = `Название комнаты: ${finalRoomTitle}`;
+          document.title = `${finalRoomTitle} · Linkra`;
+
+          inviteQrEl.innerHTML = '';
+          const qrTarget = data.short_invite_link || data.invite_link;
+          if (typeof QRCode !== 'undefined' && qrTarget) {
+            new QRCode(inviteQrEl, {
+              text: qrTarget,
+              width: 200,
+              height: 200,
+              colorDark: '#0f172a',
+              colorLight: '#ffffff',
+              correctLevel: QRCode.CorrectLevel.M,
+            });
+          }
 
           createForm.classList.add('hidden');
           result.classList.remove('hidden');
@@ -189,6 +221,18 @@
           }, 1200);
         } catch {
           showToast('Не удалось скопировать ссылку', 'error');
+        }
+      });
+
+      copyShortButton.addEventListener('click', async () => {
+        try {
+          await navigator.clipboard.writeText(shortInviteLinkInput.value);
+          copyShortButton.textContent = 'Скопировано';
+          setTimeout(() => {
+            copyShortButton.textContent = 'Копировать короткую';
+          }, 1200);
+        } catch {
+          showToast('Не удалось скопировать короткую ссылку', 'error');
         }
       });
     </script>

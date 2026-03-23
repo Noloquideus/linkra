@@ -29,6 +29,7 @@ class CallRecord(BaseModel):
     room_name: str
     room_title: str
     invite_token: str
+    invite_short_code: str | None = None
     password: str | None = None
     telegram_alert_enabled: bool = False
     created_at: datetime = Field(default_factory=utcnow)

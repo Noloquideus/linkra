@@ -8,11 +8,23 @@ class InMemoryCallStore:
     def __init__(self) -> None:
         self._lock = Lock()
         self._calls: dict[str, CallRecord] = {}
+        self._short_to_room: dict[str, str] = {}
 
     def create(self, call: CallRecord) -> CallRecord:
         with self._lock:
             self._calls[call.room_name] = call
             return call
+
+    def register_short_invite(self, short_code: str, room_name: str) -> bool:
+        with self._lock:
+            if short_code in self._short_to_room:
+                return False
+            self._short_to_room[short_code] = room_name
+            return True
+
+    def resolve_short_invite(self, short_code: str) -> Optional[str]:
+        with self._lock:
+            return self._short_to_room.get(short_code)
 
     def get(self, room_name: str) -> Optional[CallRecord]:
         with self._lock:
@@ -23,6 +35,8 @@ class InMemoryCallStore:
             call = self._calls.get(room_name)
             if call is None:
                 return None
+            if call.invite_short_code:
+                self._short_to_room.pop(call.invite_short_code, None)
             updated = call.model_copy(update={"is_active": False})
             self._calls[room_name] = updated
             return updated

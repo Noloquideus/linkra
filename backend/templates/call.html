@@ -118,6 +118,7 @@
             <div class="meeting-title-wrap">
               <div class="meeting-title">Созвон</div>
               <div class="meeting-room-name">{{ room_title }}</div>
+              <div id="meeting-participant-status" class="meeting-participant-status muted" role="status" aria-live="polite"></div>
             </div>
 
             <div class="meeting-controls">
@@ -799,6 +800,18 @@
         reorderVideoTiles();
       }
 
+      function updateMeetingParticipantStatus() {
+        const el = document.getElementById('meeting-participant-status');
+        if (!el || !room) return;
+        if (meetingCard.classList.contains('hidden')) return;
+        const remote = room.remoteParticipants.size;
+        if (remote === 0) {
+          el.textContent = 'Ожидаем участников';
+        } else {
+          el.textContent = `В комнате: ${remote + 1}`;
+        }
+      }
+
       function addChatMessage(author, text, isOwn = false) {
         const item = document.createElement('div');
         item.className = `chat-message${isOwn ? ' own' : ''}`;
@@ -1057,10 +1070,12 @@
                 showAvatar(participant.identity, participant.name || participant.identity);
                 addChatMessage('Система', `${participant.name || participant.identity} вошёл в комнату`);
               }
+              updateMeetingParticipantStatus();
             })
             .on(LivekitClient.RoomEvent.ParticipantDisconnected, (participant) => {
               detachParticipant(participant.identity);
               addChatMessage('Система', `${participant.name || participant.identity} вышел из комнаты`);
+              updateMeetingParticipantStatus();
             })
             .on(LivekitClient.RoomEvent.ActiveSpeakersChanged, (speakers) => {
               updateSpeakingIndicators(speakers);
@@ -1169,6 +1184,7 @@
           setControlsDisabled(false);
           reconnectInProgress = false;
           activeReconnectAttempt = 0;
+          updateMeetingParticipantStatus();
           if (reconnectMode) showToast('Соединение восстановлено', 'success');
         } catch (error) {
           console.error(error);

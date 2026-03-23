@@ -1,5 +1,6 @@
 import json
 import mimetypes
+import secrets
 import urllib.parse
 import urllib.request
 from datetime import datetime
@@ -8,7 +9,7 @@ from shutil import rmtree
 from uuid import uuid4
 
 from fastapi import FastAPI, File, Form, HTTPException, Query, Request, UploadFile
-from fastapi.responses import FileResponse, HTMLResponse
+from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
@@ -284,6 +285,19 @@ def home(request: Request):
     )
 
 
+@app.get("/i/{short_code}")
+def invite_short_redirect(request: Request, short_code: str):
+    room_name = store.resolve_short_invite(short_code)
+    if room_name is None:
+        raise HTTPException(status_code=404, detail="Not found")
+    call = store.get(room_name)
+    if call is None or not call.is_active or call.invite_short_code != short_code:
+        raise HTTPException(status_code=404, detail="Not found")
+    query = urllib.parse.urlencode({"invite": call.invite_token})
+    base = str(request.base_url).rstrip("/")
+    return RedirectResponse(url=f"{base}/call/{room_name}?{query}", status_code=302)
+
+
 @app.get("/call/overloaded", response_class=HTMLResponse)
 def call_overloaded_page(request: Request):
     return render_call_error(
@@ -353,22 +367,30 @@ async def create_call(payload: CreateCallRequest | None = None) -> CreateCallRes
     password = payload.password.strip() if payload and payload.password else None
     telegram_alert_enabled = bool(payload.telegram_alert_enabled) if payload else False
 
+    short_code = secrets.token_hex(4)
+    while not store.register_short_invite(short_code, room_name):
+        short_code = secrets.token_hex(4)
+
     call = CallRecord(
         room_name=room_name,
         room_title=room_title,
         invite_token=invite_token,
+        invite_short_code=short_code,
         password=password or None,
         telegram_alert_enabled=settings.telegram_alerting_available and telegram_alert_enabled,
     )
     store.create(call)
     await create_room_if_needed(room_name)
 
-    invite_link = f"{settings.app_base_url.strip()}/call/{room_name}?invite={invite_token}"
+    base = public_app_url()
+    invite_link = f"{base}/call/{room_name}?invite={invite_token}"
+    short_invite_link = f"{base}/i/{short_code}"
     return CreateCallResponse(
         room_name=room_name,
         room_title=room_title,
         invite_token=invite_token,
         invite_link=invite_link,
+        short_invite_link=short_invite_link,
         has_password=bool(password),
     )
 
