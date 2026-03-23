@@ -305,9 +305,88 @@ body {
   flex: 1 1 200px;
 }
 
-.home-create-actions .insta-btn {
-  flex: 0 1 140px;
-  min-width: 120px;
+.insta-bundle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 1 168px;
+  min-width: 0;
+}
+
+.insta-bundle .insta-btn {
+  flex: 1 1 auto;
+  min-width: 96px;
+}
+
+.insta-help-cell {
+  position: relative;
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+}
+
+.insta-help-btn {
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border-radius: 999px;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  background: rgba(15, 23, 42, 0.75);
+  color: #94a3b8;
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1;
+  cursor: help;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+}
+
+.insta-help-btn:hover,
+.insta-help-btn:focus-visible {
+  color: var(--text);
+  border-color: rgba(148, 163, 184, 0.55);
+  background: rgba(30, 41, 59, 0.9);
+  outline: none;
+}
+
+.insta-help-popover {
+  position: absolute;
+  bottom: calc(100% + 10px);
+  right: 0;
+  width: min(272px, calc(100vw - 40px));
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: rgba(17, 24, 39, 0.98);
+  box-shadow: 0 14px 36px rgba(0, 0, 0, 0.45);
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.45;
+  color: #e2e8f0;
+  z-index: 60;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 0.18s ease, visibility 0.18s ease;
+}
+
+.insta-help-popover::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  right: 10px;
+  border: 7px solid transparent;
+  border-top-color: rgba(17, 24, 39, 0.98);
+  filter: drop-shadow(0 2px 1px rgba(0, 0, 0, 0.2));
+}
+
+.insta-help-cell:hover .insta-help-popover,
+.insta-help-cell:focus-within .insta-help-popover {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
 }
 
 .hidden {
@@ -1686,10 +1765,34 @@ label span {
     justify-content: center;
   }
 
-  .home-create-actions .insta-btn {
+  .home-create-actions .insta-bundle {
+    width: 100%;
+    max-width: none;
+    flex: 1 1 auto;
+  }
+
+  .home-create-actions .insta-bundle .insta-btn {
     flex: 1 1 auto;
     min-width: 0;
     max-width: none;
+    width: auto;
+  }
+
+  .home-create-actions .insta-help-popover {
+    left: 0;
+    right: auto;
+    width: min(288px, calc(100vw - 28px));
+  }
+
+  .home-create-actions .insta-help-popover::after {
+    left: 14px;
+    right: auto;
+  }
+
+  .insta-help-btn {
+    width: 36px;
+    height: 36px;
+    font-size: 15px;
   }
 
   .home-settings-menu {

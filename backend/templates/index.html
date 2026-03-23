@@ -103,15 +103,30 @@
 
           <div class="home-create-actions">
             <button id="create-call-btn" class="btn primary create-btn">Создать звонок</button>
-            <button
-              type="button"
-              id="insta-btn"
-              class="btn secondary insta-btn"
-              aria-label="Инста: быстрая комната без камеры и микрофона, ссылка в буфере"
-              title="Сразу создаётся комната: микрофон и камера выключены, короткая ссылка копируется в буфер, открывается звонок. Случайное имя можно сменить в комнате."
-            >
-              Инста
-            </button>
+            <div class="insta-bundle">
+              <button
+                type="button"
+                id="insta-btn"
+                class="btn secondary insta-btn"
+                aria-label="Инста: быстрая комната без камеры и микрофона, ссылка в буфере"
+              >
+                Инста
+              </button>
+              <div class="insta-help-cell">
+                <button
+                  type="button"
+                  class="insta-help-btn"
+                  aria-label="Справка: что делает кнопка Инста"
+                  aria-describedby="insta-help-desc"
+                >
+                  <span aria-hidden="true">?</span>
+                </button>
+                <div id="insta-help-desc" class="insta-help-popover" role="tooltip">
+                  Сразу создаётся комната: микрофон и камера выключены, короткая ссылка копируется в буфер,
+                  открывается звонок. Случайное имя можно сменить в комнате.
+                </div>
+              </div>
+            </div>
           </div>
         </div>
 
