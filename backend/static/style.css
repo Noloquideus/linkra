@@ -161,7 +161,7 @@ body {
   display: flex;
   flex-wrap: wrap;
   gap: 12px;
-  align-items: stretch;
+  align-items: center;
 }
 
 .home-create-actions .btn {
@@ -177,8 +177,9 @@ body {
   font-size: 15px;
 }
 
-.home-create-actions #create-call-btn {
-  margin-bottom: 0;
+.home-create-actions #create-call-btn,
+.home-create-actions #insta-btn {
+  margin: 0;
 }
 
 .home-create-actions .create-btn {
@@ -310,10 +311,6 @@ input[type="text"] {
 
 #room-title-input {
   margin: 8px 0 16px;
-}
-
-#create-call-btn {
-  margin-bottom: 8px;
 }
 
 #room-title-result {
@@ -1330,11 +1327,6 @@ label span {
 #room-password,
 #chat-input {
   margin: 0;
-}
-
-#create-call-btn {
-  margin-top: 16px;
-  margin-bottom: 0;
 }
 
 #copy-link-btn {
