@@ -119,6 +119,11 @@
               <div class="meeting-title">Созвон</div>
               <div class="meeting-room-name">{{ room_title }}</div>
               <div id="meeting-participant-status" class="meeting-participant-status muted" role="status" aria-live="polite"></div>
+              <div id="meeting-self-name-row" class="meeting-self-name-row hidden">
+                <span class="meeting-self-name-label muted">Твоё имя</span>
+                <span id="meeting-self-name-display" class="meeting-self-name-value"></span>
+                <button type="button" id="rename-self-btn" class="btn secondary meeting-rename-btn" disabled>Сменить</button>
+              </div>
             </div>
 
             <div class="meeting-controls">
@@ -977,7 +982,60 @@
         chatDropzone.classList.remove('is-active');
       }
 
-      async function joinCall({ silentRestore = false, reconnectMode = false } = {}) {
+      function randomGuestFallback() {
+        return `Гость-${Date.now().toString(36).slice(-4)}${Math.random().toString(36).slice(2, 5)}`.slice(0, 24);
+      }
+
+      function showMeetingSelfNameRow() {
+        const row = document.getElementById('meeting-self-name-row');
+        const disp = document.getElementById('meeting-self-name-display');
+        const btn = document.getElementById('rename-self-btn');
+        if (!row || !disp || !btn) return;
+        row.classList.remove('hidden');
+        disp.textContent = displayNameInput.value.trim() || 'Гость';
+        btn.disabled = false;
+      }
+
+      function hideMeetingSelfNameRow() {
+        const row = document.getElementById('meeting-self-name-row');
+        const btn = document.getElementById('rename-self-btn');
+        if (row) row.classList.add('hidden');
+        if (btn) btn.disabled = true;
+      }
+
+      async function renameSelfInRoom() {
+        if (!room) return;
+        const current = displayNameInput.value.trim() || 'Гость';
+        const next = window.prompt('Новое имя в комнате', current);
+        if (next === null) return;
+        const name = next.trim().slice(0, 50);
+        if (!name) {
+          showToast('Введи непустое имя', 'error');
+          return;
+        }
+        try {
+          if (typeof room.localParticipant.setName !== 'function') {
+            showToast('Смена имени недоступна в этой версии клиента', 'error');
+            return;
+          }
+          await room.localParticipant.setName(name);
+          displayNameInput.value = name;
+          updateSavedSession({ displayName: name });
+          const label = getLocalParticipantLabel();
+          const tile = document.querySelector(`[data-participant="${room.localParticipant.identity}"]`);
+          if (tile) {
+            const lab = tile.querySelector('.video-label');
+            if (lab) lab.textContent = label;
+          }
+          const disp = document.getElementById('meeting-self-name-display');
+          if (disp) disp.textContent = name;
+          showToast('Имя обновлено', 'success');
+        } catch (error) {
+          showToast(error.message || 'Не удалось сменить имя', 'error');
+        }
+      }
+
+      async function joinCall({ silentRestore = false, reconnectMode = false, instaAuto = false } = {}) {
         clearJoinErrors();
         const displayName = displayNameInput.value.trim();
         const roomPassword = roomPasswordInput.value.trim();
@@ -1001,7 +1059,12 @@
           showReconnectBanner('Переподключаем…', { loading: true, showRetry: false });
           setStatus('переподключение...', 'reconnecting');
         } else {
-          setButtonLoading(joinBtn, true, silentRestore ? 'Восстанавливаем...' : 'Подключаем...', 'Войти в звонок');
+          setButtonLoading(
+            joinBtn,
+            true,
+            silentRestore ? 'Восстанавливаем...' : instaAuto ? 'Инста…' : 'Подключаем...',
+            'Войти в звонок',
+          );
           setStatus(silentRestore ? 'восстановление соединения...' : 'получение токена...', silentRestore ? 'reconnecting' : '');
         }
 
@@ -1037,6 +1100,25 @@
 
           await stopPrejoinPreview();
           room = new LivekitClient.Room({ adaptiveStream: true, dynacast: true });
+
+          const nameChangedEv = LivekitClient.RoomEvent.ParticipantNameChanged;
+          if (nameChangedEv !== undefined) {
+            room.on(nameChangedEv, (participant) => {
+              const nm = participant.name || participant.identity;
+              if (participant.isLocal) {
+                displayNameInput.value = nm;
+                updateSavedSession({ displayName: nm });
+                const d = document.getElementById('meeting-self-name-display');
+                if (d) d.textContent = nm;
+              }
+              const label = participant.isLocal ? `${nm} (ты)` : nm;
+              const tile = document.querySelector(`[data-participant="${participant.identity}"]`);
+              if (tile) {
+                const lab = tile.querySelector('.video-label');
+                if (lab) lab.textContent = label;
+              }
+            });
+          }
 
           room
             .on(LivekitClient.RoomEvent.TrackSubscribed, (track, publication, participant) => {
@@ -1113,6 +1195,7 @@
               }
             })
             .on(LivekitClient.RoomEvent.Disconnected, async () => {
+              hideMeetingSelfNameRow();
               const wasIntentional = intentionalDisconnect;
               const hasSavedSession = !!loadCallSession();
               room = null;
@@ -1185,6 +1268,7 @@
           reconnectInProgress = false;
           activeReconnectAttempt = 0;
           updateMeetingParticipantStatus();
+          showMeetingSelfNameRow();
           if (reconnectMode) showToast('Соединение восстановлено', 'success');
         } catch (error) {
           console.error(error);
@@ -1237,12 +1321,14 @@
         if (!preserveSession) clearCallSession();
         intentionalDisconnect = true;
         if (!room) {
+          hideMeetingSelfNameRow();
           showPrejoinScreen();
           if (!silent) await refreshPrejoinPreview();
           return;
         }
         room.disconnect();
         room = null;
+        hideMeetingSelfNameRow();
         videos.innerHTML = '';
         updateVideoLayout();
         setStatus(silent ? 'звонок завершён' : 'выход из комнаты', silent ? 'success' : '');
@@ -1261,6 +1347,7 @@
         stopTimer();
         hideReconnectBanner();
         showPrejoinScreen();
+        hideMeetingSelfNameRow();
         setControlsDisabled(false);
         updateAllControlButtons();
         await refreshPrejoinPreview();
@@ -1377,6 +1464,7 @@
       micBtn.addEventListener('click', toggleMicrophone);
       cameraBtn.addEventListener('click', toggleCamera);
       screenBtn.addEventListener('click', toggleScreenShare);
+      document.getElementById('rename-self-btn').addEventListener('click', renameSelfInRoom);
       attachmentBtn.addEventListener('click', () => attachmentInput.click());
       attachmentInput.addEventListener('change', async (event) => {
         const [file] = event.target.files || [];
@@ -1440,8 +1528,24 @@
         setButtonLoading(leaveBtn, false, 'Выходим...', 'Выйти');
         setButtonLoading(chatSendBtn, false, 'Отправляем...', 'Отправить');
         setButtonLoading(copyInviteBtn, false, 'Копируем...', 'Скопировать ссылку');
-        const saved = loadCallSession();
         const inviteToken = getInviteToken();
+        const instaKey = `linkra-insta:${roomName}`;
+        const instaRaw = sessionStorage.getItem(instaKey);
+        if (instaRaw && inviteToken) {
+          try {
+            const insta = JSON.parse(instaRaw);
+            if (insta.invite_token === inviteToken) {
+              sessionStorage.removeItem(instaKey);
+              displayNameInput.value = (insta.display_name && String(insta.display_name).trim()) || randomGuestFallback();
+              micEnabled = false;
+              cameraEnabled = false;
+              updateAllControlButtons();
+              await joinCall({ instaAuto: true });
+              if (room) return;
+            }
+          } catch (_) {}
+        }
+        const saved = loadCallSession();
         if (saved && saved.roomName === roomName && saved.inviteToken === inviteToken) {
           displayNameInput.value = saved.displayName || '';
           roomPasswordInput.value = saved.roomPassword || '';

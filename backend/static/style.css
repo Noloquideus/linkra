@@ -157,6 +157,22 @@ body {
   }
 }
 
+.home-create-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+}
+
+.home-create-actions .create-btn {
+  flex: 1 1 200px;
+}
+
+.insta-btn {
+  flex: 0 0 auto;
+  min-width: 120px;
+}
+
 .hidden {
   display: none !important;
 }
@@ -434,6 +450,39 @@ label span {
   font-weight: 600;
   color: #93c5fd;
   letter-spacing: 0.02em;
+}
+
+.meeting-self-name-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 14px;
+  margin-top: 12px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: rgba(15, 23, 42, 0.55);
+  border: 1px solid rgba(148, 163, 184, 0.2);
+}
+
+.meeting-self-name-label {
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.meeting-self-name-value {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text);
+  min-width: 0;
+  word-break: break-word;
+}
+
+.meeting-rename-btn {
+  padding: 8px 14px;
+  font-size: 14px;
+  margin-left: auto;
 }
 
 .meeting-controls {
@@ -981,6 +1030,16 @@ label span {
   .finish-call-btn {
     width: 100%;
     max-width: none;
+  }
+
+  .meeting-self-name-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .meeting-rename-btn {
+    margin-left: 0;
+    width: 100%;
   }
 }
 

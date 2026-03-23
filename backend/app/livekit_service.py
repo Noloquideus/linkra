@@ -38,6 +38,7 @@ async def build_participant_token(*, room_name: str, identity: str, display_name
                 room=room_name,
                 can_publish=True,
                 can_subscribe=True,
+                can_update_own_metadata=True,
             )
         )
     )

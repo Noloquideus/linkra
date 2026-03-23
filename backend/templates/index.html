@@ -34,6 +34,7 @@
             <li>Камера и микрофон без установки</li>
             <li>Чат и файлы в комнате</li>
             <li>Короткая ссылка и QR для телефона</li>
+            <li>Кнопка «Инста» — сразу в комнату без камеры и микрофона</li>
           </ul>
         </header>
 
@@ -79,7 +80,10 @@
           </div>
           {% endif %}
 
-          <button id="create-call-btn" class="btn primary create-btn">Создать звонок</button>
+          <div class="home-create-actions">
+            <button id="create-call-btn" class="btn primary create-btn">Создать звонок</button>
+            <button type="button" id="insta-btn" class="btn secondary insta-btn">Инста</button>
+          </div>
         </div>
 
         <div id="result" class="result hidden stack-lg">
@@ -127,6 +131,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <script>
       const createButton = document.getElementById('create-call-btn');
+      const instaButton = document.getElementById('insta-btn');
       const copyButton = document.getElementById('copy-link-btn');
       const copyShortButton = document.getElementById('copy-short-btn');
       const result = document.getElementById('result');
@@ -204,6 +209,59 @@
           inviteExtraPanel.classList.add('hidden');
           toggleInviteExtra.setAttribute('aria-expanded', 'false');
           toggleInviteExtra.textContent = 'Показать полную ссылку и QR-код';
+        }
+      });
+
+      function randomGuestName() {
+        const a = Date.now().toString(36).slice(-4);
+        const b = Math.random().toString(36).slice(2, 6);
+        return `Гость-${a}${b}`.slice(0, 24);
+      }
+
+      function instaRoomTitle() {
+        return `Инста-${Math.random().toString(36).slice(2, 8)}`;
+      }
+
+      instaButton.addEventListener('click', async () => {
+        instaButton.disabled = true;
+        instaButton.textContent = 'Создаём…';
+        try {
+          const response = await fetch('/api/calls', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              room_title: instaRoomTitle(),
+              password: '',
+              telegram_alert_enabled: false,
+            }),
+          });
+          if (!response.ok) {
+            const error = await response.json().catch(() => ({}));
+            throw new Error(error.detail || 'Не удалось создать комнату');
+          }
+          const data = await response.json();
+          const guest = randomGuestName();
+          const target = data.short_invite_link || data.invite_link;
+          try {
+            await navigator.clipboard.writeText(target);
+            showToast('Ссылка скопирована, открываем комнату…', 'success');
+          } catch {
+            showToast('Открываем комнату — скопируй ссылку из адресной строки', 'info');
+          }
+          sessionStorage.setItem(
+            `linkra-insta:${data.room_name}`,
+            JSON.stringify({
+              invite_token: data.invite_token,
+              display_name: guest,
+              mic_enabled: false,
+              camera_enabled: false,
+            }),
+          );
+          window.location.href = target;
+        } catch (error) {
+          showToast(error.message || 'Не удалось начать Инста', 'error');
+          instaButton.disabled = false;
+          instaButton.textContent = 'Инста';
         }
       });
 
