@@ -46,6 +46,44 @@ body {
   min-height: 100vh;
 }
 
+.toast-stack {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 10px;
+  max-width: min(420px, calc(100vw - 32px));
+  pointer-events: none;
+}
+
+.toast {
+  pointer-events: auto;
+  padding: 12px 16px;
+  border-radius: 14px;
+  font-size: 14px;
+  line-height: 1.45;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35);
+  border: 1px solid var(--line);
+  background: rgba(17, 24, 39, 0.96);
+  color: var(--text);
+  transition: opacity 0.22s ease, transform 0.22s ease;
+}
+
+.toast.info {
+  border-color: rgba(59, 130, 246, 0.35);
+}
+
+.toast.success {
+  border-color: rgba(34, 197, 94, 0.4);
+}
+
+.toast.error {
+  border-color: rgba(239, 68, 68, 0.45);
+}
+
 .container.home-shell {
   flex: 1;
   display: flex;
@@ -1566,4 +1604,216 @@ label span {
 
 .call-error-actions .btn.secondary:hover {
   background: rgba(37, 99, 235, 0.28);
+}
+
+@media (max-width: 640px) {
+  .call-error-page {
+    padding: max(24px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right))
+      max(32px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
+  }
+
+  .call-error-card {
+    padding: 28px 20px 24px;
+  }
+
+  .call-error-heading {
+    font-size: 22px;
+  }
+
+  .call-error-actions {
+    flex-direction: column;
+  }
+
+  .call-error-actions .btn {
+    width: 100%;
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    overflow-x: hidden;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .container,
+  .container.wide,
+  .container.home-shell {
+    padding-left: max(12px, env(safe-area-inset-left, 0px));
+    padding-right: max(12px, env(safe-area-inset-right, 0px));
+  }
+
+  .container.home-shell {
+    padding-top: max(12px, env(safe-area-inset-top, 0px));
+    padding-bottom: max(20px, env(safe-area-inset-bottom, 0px));
+  }
+
+  .home-grid {
+    gap: 22px;
+  }
+
+  .home-hero-title {
+    font-size: clamp(1.35rem, 5vw + 0.5rem, 2rem);
+  }
+
+  .home-hero-lead,
+  .home-features {
+    max-width: none;
+  }
+
+  .card.home-card {
+    padding: 18px 14px;
+    border-radius: 16px;
+  }
+
+  .home-card-header {
+    align-items: center;
+  }
+
+  .home-card-header .home-card-title {
+    font-size: 1.2rem;
+  }
+
+  .home-create-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .home-create-actions .btn {
+    width: 100%;
+    min-height: 48px;
+    justify-content: center;
+  }
+
+  .home-create-actions .insta-btn {
+    flex: 1 1 auto;
+    min-width: 0;
+    max-width: none;
+  }
+
+  .home-settings-menu {
+    max-width: min(300px, calc(100vw - 24px));
+  }
+
+  .result .copy-short-btn,
+  .open-call-btn {
+    width: 100%;
+    box-sizing: border-box;
+    text-align: center;
+    min-height: 48px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  #short-invite-link,
+  #invite-link {
+    font-size: 16px;
+  }
+
+  .card {
+    padding: 18px 14px;
+  }
+
+  .join-card {
+    margin-bottom: 14px;
+  }
+
+  .meeting-card {
+    min-height: 0;
+    padding-top: 12px;
+  }
+
+  .chat-card {
+    min-height: 0;
+  }
+
+  .chat-messages {
+    min-height: 140px;
+    max-height: min(48vh, 400px);
+  }
+
+  .prejoin-header {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+
+  .prejoin-layout {
+    gap: 14px;
+  }
+
+  .btn,
+  .icon-btn,
+  .toggle-btn,
+  .home-settings-trigger {
+    touch-action: manipulation;
+  }
+
+  .btn {
+    min-height: 44px;
+  }
+
+  .icon-btn {
+    width: 48px;
+    height: 48px;
+  }
+
+  .meeting-controls .invite-inline-btn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  input[type='text'],
+  input[type='password'],
+  textarea,
+  #chat-input,
+  #display-name,
+  #room-password,
+  #room-title-input,
+  #room-password-input,
+  #invite-link,
+  #short-invite-link {
+    font-size: 16px;
+  }
+
+  .toast-stack {
+    top: max(10px, env(safe-area-inset-top, 0px));
+    right: max(10px, env(safe-area-inset-right, 0px));
+    max-width: calc(100vw - 20px);
+  }
+
+  .toast {
+    font-size: 15px;
+    padding: 12px 14px;
+    word-break: break-word;
+  }
+}
+
+@media (max-width: 480px) {
+  .home-hero-lead {
+    font-size: 1rem;
+  }
+
+  .home-features {
+    font-size: 0.9rem;
+  }
+
+  .meeting-room-name {
+    font-size: 1.15rem;
+  }
+
+  .video-tile {
+    min-height: 280px;
+  }
+
+  .media-slot {
+    min-height: 240px;
+    height: min(52vh, 420px);
+  }
+
+  .meeting-controls {
+    gap: 8px;
+  }
 }
