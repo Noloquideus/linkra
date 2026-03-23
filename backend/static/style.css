@@ -161,15 +161,27 @@ body {
   display: flex;
   flex-wrap: wrap;
   gap: 12px;
+  align-items: stretch;
+}
+
+.home-create-actions .btn {
+  display: inline-flex;
   align-items: center;
+  justify-content: center;
+  min-height: 52px;
+  box-sizing: border-box;
+}
+
+.home-create-actions #create-call-btn {
+  margin-bottom: 0;
 }
 
 .home-create-actions .create-btn {
   flex: 1 1 200px;
 }
 
-.insta-btn {
-  flex: 0 0 auto;
+.home-create-actions .insta-btn {
+  flex: 0 1 140px;
   min-width: 120px;
 }
 
