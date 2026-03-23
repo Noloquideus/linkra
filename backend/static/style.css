@@ -168,8 +168,13 @@ body {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-height: 52px;
   box-sizing: border-box;
+  height: 52px;
+  min-height: 52px;
+  max-height: 52px;
+  padding: 0 18px;
+  line-height: 1.25;
+  font-size: 15px;
 }
 
 .home-create-actions #create-call-btn {
