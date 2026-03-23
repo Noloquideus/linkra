@@ -236,6 +236,16 @@
       const joinErrorBanner = document.getElementById('join-error-banner');
       const passwordFieldGroup = document.getElementById('password-field-group');
       const videos = document.getElementById('videos');
+      videos.addEventListener('click', (e) => {
+        const fsBtn = e.target.closest('.screen-fullscreen-btn');
+        if (!fsBtn || !room) return;
+        e.preventDefault();
+        e.stopPropagation();
+        const tile = fsBtn.closest('.video-tile');
+        if (tile) void toggleScreenShareFullscreen(tile);
+      });
+      document.addEventListener('fullscreenchange', syncScreenFullscreenButtons);
+      document.addEventListener('webkitfullscreenchange', syncScreenFullscreenButtons);
       const toastStack = document.getElementById('toast-stack');
       const reconnectBanner = document.getElementById('reconnect-banner');
       const reconnectSpinner = document.getElementById('reconnect-spinner');
@@ -591,15 +601,63 @@
         else videos.classList.add('layout-many');
       }
 
-      function reorderVideoTiles() {
-        const tiles = Array.from(videos.querySelectorAll('.video-tile'));
-        tiles.sort((a, b) => {
-          const aSpeaking = a.classList.contains('speaking') ? 1 : 0;
-          const bSpeaking = b.classList.contains('speaking') ? 1 : 0;
-          if (aSpeaking !== bSpeaking) return bSpeaking - aSpeaking;
-          return (Number(a.dataset.createdOrder) || 0) - (Number(b.dataset.createdOrder) || 0);
+      function getFullscreenElement() {
+        return document.fullscreenElement || document.webkitFullscreenElement;
+      }
+
+      async function exitFullscreenIfAny() {
+        const el = getFullscreenElement();
+        if (!el) return;
+        if (document.exitFullscreen) await document.exitFullscreen();
+        else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
+      }
+
+      function syncScreenFullscreenButtons() {
+        const fsEl = getFullscreenElement();
+        document.querySelectorAll('.screen-fullscreen-btn').forEach((btn) => {
+          const tile = btn.closest('.video-tile');
+          if (!tile) return;
+          const screenSlot = tile.querySelector('.screen-slot');
+          const video = screenSlot?.querySelector('video[data-slot="screen"]');
+          const active = !!(fsEl && (fsEl === video || fsEl === screenSlot));
+          btn.classList.toggle('is-fullscreen', active);
+          btn.setAttribute('aria-pressed', active ? 'true' : 'false');
+          btn.title = active ? 'Свернуть' : 'На весь экран';
+          btn.setAttribute('aria-label', active ? 'Свернуть демонстрацию' : 'Демонстрация на весь экран');
         });
-        tiles.forEach((tile) => videos.appendChild(tile));
+      }
+
+      async function toggleScreenShareFullscreen(tile) {
+        const screenSlot = tile.querySelector('.screen-slot');
+        const video = screenSlot?.querySelector('video[data-slot="screen"]');
+        if (!screenSlot || !video) return;
+        const fsEl = getFullscreenElement();
+        try {
+          if (fsEl === video || fsEl === screenSlot) {
+            await exitFullscreenIfAny();
+            return;
+          }
+          if (fsEl) await exitFullscreenIfAny();
+          if (video.requestFullscreen) {
+            await video.requestFullscreen();
+            return;
+          }
+          if (screenSlot.requestFullscreen) {
+            await screenSlot.requestFullscreen();
+            return;
+          }
+          if (video.webkitEnterFullscreen) {
+            video.webkitEnterFullscreen();
+            return;
+          }
+          if (screenSlot.webkitRequestFullscreen) {
+            screenSlot.webkitRequestFullscreen();
+            return;
+          }
+          showToast('Полноэкранный режим недоступен', 'info');
+        } catch (err) {
+          showToast('Не удалось развернуть демонстрацию', 'error');
+        }
       }
 
       function participantTile(identity, label) {
@@ -622,6 +680,19 @@
                 <span class="state-icon state-cam-off" title="Камера выключена">
                   <img src="/static/icons/camera_off.png" alt="" />
                 </span>
+                <button
+                  type="button"
+                  class="screen-fullscreen-btn"
+                  aria-label="Демонстрация на весь экран"
+                  title="На весь экран"
+                >
+                  <svg class="screen-fs-icon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+                    <path
+                      fill="currentColor"
+                      d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"
+                    />
+                  </svg>
+                </button>
               </div>
             </div>
             <div class="video-tile-body">
@@ -807,7 +878,6 @@
         document.querySelectorAll('.video-tile').forEach((tile) => {
           tile.classList.toggle('speaking', speakerIds.has(tile.dataset.participant));
         });
-        reorderVideoTiles();
       }
 
       function updateMeetingParticipantStatus() {
