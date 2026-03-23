@@ -198,6 +198,7 @@
     <script>
       const roomName = {{ room_name | tojson }};
       const hasPassword = {{ has_password | tojson }};
+      const quickJoinDefault = {{ quick_join_default | tojson }};
       const maxAttachmentSizeMb = {{ max_attachment_size_mb | tojson }};
       const maxAttachmentSizeBytes = maxAttachmentSizeMb * 1024 * 1024;
       const statusEl = document.getElementById('status');
@@ -1554,6 +1555,14 @@
           isRestoringSession = true;
           updateAllControlButtons();
           await joinCall({ silentRestore: true });
+          if (room) return;
+        }
+        if (quickJoinDefault && !hasPassword && inviteToken) {
+          displayNameInput.value = randomGuestFallback();
+          micEnabled = false;
+          cameraEnabled = false;
+          updateAllControlButtons();
+          await joinCall({ instaAuto: true });
           if (room) return;
         }
         updateAllControlButtons();

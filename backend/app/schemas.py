@@ -7,6 +7,7 @@ class CreateCallRequest(BaseModel):
     room_title: str = Field(default="", max_length=100)
     password: str = Field(default="", max_length=100)
     telegram_alert_enabled: bool = False
+    quick_join: bool = False
 
 
 class CreateCallResponse(BaseModel):

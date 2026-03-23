@@ -354,6 +354,7 @@ def call_page(request: Request, room_name: str, invite: str | None = Query(defau
             "room_name": room_name,
             "room_title": call.room_title,
             "has_password": bool(call.password),
+            "quick_join_default": call.quick_join_default,
             "max_attachment_size_mb": settings.max_attachment_size_mb,
         },
     )
@@ -366,6 +367,7 @@ async def create_call(payload: CreateCallRequest | None = None) -> CreateCallRes
     room_title = (payload.room_title if payload and payload.room_title else room_name)
     password = payload.password.strip() if payload and payload.password else None
     telegram_alert_enabled = bool(payload.telegram_alert_enabled) if payload else False
+    quick_join_default = bool(payload.quick_join) if payload else False
 
     short_code = secrets.token_hex(4)
     while not store.register_short_invite(short_code, room_name):
@@ -376,6 +378,7 @@ async def create_call(payload: CreateCallRequest | None = None) -> CreateCallRes
         room_title=room_title,
         invite_token=invite_token,
         invite_short_code=short_code,
+        quick_join_default=quick_join_default,
         password=password or None,
         telegram_alert_enabled=settings.telegram_alerting_available and telegram_alert_enabled,
     )
