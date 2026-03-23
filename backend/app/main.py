@@ -346,6 +346,7 @@ def call_page(request: Request, room_name: str, invite: str | None = Query(defau
             error_code="403",
             variant="invalid_invite",
         )
+    invite_token_embedded = call.invite_token if call.quick_join_default else ""
     return templates.TemplateResponse(
         "call.html",
         {
@@ -355,6 +356,7 @@ def call_page(request: Request, room_name: str, invite: str | None = Query(defau
             "room_title": call.room_title,
             "has_password": bool(call.password),
             "quick_join_default": call.quick_join_default,
+            "invite_token_embedded": invite_token_embedded,
             "max_attachment_size_mb": settings.max_attachment_size_mb,
         },
     )

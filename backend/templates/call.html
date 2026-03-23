@@ -199,6 +199,7 @@
       const roomName = {{ room_name | tojson }};
       const hasPassword = {{ has_password | tojson }};
       const quickJoinDefault = {{ quick_join_default | tojson }};
+      const inviteTokenEmbedded = {{ invite_token_embedded | tojson }};
       const maxAttachmentSizeMb = {{ max_attachment_size_mb | tojson }};
       const maxAttachmentSizeBytes = maxAttachmentSizeMb * 1024 * 1024;
       const statusEl = document.getElementById('status');
@@ -422,7 +423,10 @@
 
       function getInviteToken() {
         const url = new URL(window.location.href);
-        return url.searchParams.get('invite') || '';
+        const fromUrl = url.searchParams.get('invite') || '';
+        if (fromUrl) return fromUrl;
+        if (inviteTokenEmbedded && String(inviteTokenEmbedded).trim()) return String(inviteTokenEmbedded).trim();
+        return '';
       }
 
       function getSessionStorageKey() {
@@ -1523,7 +1527,7 @@
       window.addEventListener('scroll', updateBottomActionsVisibility, { passive: true });
       window.addEventListener('resize', updateBottomActionsVisibility);
 
-      window.addEventListener('load', async () => {
+      async function runInitialJoinFlow() {
         setButtonLoading(joinBtn, false, 'Подключаем...', 'Войти в звонок');
         setButtonLoading(finishBtn, false, 'Завершаем...', 'Завершить');
         setButtonLoading(leaveBtn, false, 'Выходим...', 'Выйти');
@@ -1569,7 +1573,9 @@
         showPrejoinScreen();
         updatePreviewAvatar();
         await refreshPrejoinPreview();
-      });
+      }
+
+      void runInitialJoinFlow();
 
       window.addEventListener('beforeunload', () => {
         stopPrejoinPreview();
