@@ -902,6 +902,30 @@
         });
       }
 
+
+
+      function applyParticipantDisplayName(identity, displayName, isLocal) {
+        if (!identity) return;
+        const raw = displayName != null ? String(displayName).trim().slice(0, 50) : '';
+        const nm = raw || identity;
+        if (isLocal) {
+          displayNameInput.value = nm;
+          updateSavedSession({ displayName: nm });
+          const d = document.getElementById('meeting-self-name-display');
+          if (d) d.textContent = nm;
+        }
+        updateChatAuthorLabels(identity, nm);
+        const label = isLocal ? `${nm} (ты)` : nm;
+        const tile = document.querySelector(`[data-participant="${identity}"]`);
+        if (tile) {
+          const lab = tile.querySelector('.video-label');
+          if (lab) lab.textContent = label;
+          const av = tile.querySelector('.avatar-placeholder');
+          if (av) av.textContent = initialsFromLabel(label);
+        }
+      }
+
+
       function addChatMessage(author, text, isOwn = false, authorIdentity = null) {
         const item = document.createElement('div');
         item.className = `chat-message${isOwn ? ' own' : ''}`;
@@ -1129,18 +1153,13 @@
             return;
           }
           await room.localParticipant.setName(name);
-          displayNameInput.value = name;
-          updateSavedSession({ displayName: name });
-          updateChatAuthorLabels(room.localParticipant.identity, name);
           await syncChatAuthorDisplay(name);
-          const label = getLocalParticipantLabel();
-          const tile = document.querySelector(`[data-participant="${room.localParticipant.identity}"]`);
-          if (tile) {
-            const lab = tile.querySelector('.video-label');
-            if (lab) lab.textContent = label;
-          }
-          const disp = document.getElementById('meeting-self-name-display');
-          if (disp) disp.textContent = name;
+          await sendSystemData({
+            type: 'display-name-sync',
+            identity: room.localParticipant.identity,
+            displayName: name,
+          });
+          applyParticipantDisplayName(room.localParticipant.identity, name, true);
           showToast('Имя обновлено', 'success');
         } catch (error) {
           showToast(error.message || 'Не удалось сменить имя', 'error');
@@ -1213,25 +1232,21 @@
           await stopPrejoinPreview();
           room = new LivekitClient.Room({ adaptiveStream: true, dynacast: true });
 
-          const nameChangedEv = LivekitClient.RoomEvent.ParticipantNameChanged;
-          if (nameChangedEv !== undefined) {
-            room.on(nameChangedEv, (participant) => {
-              const nm = participant.name || participant.identity;
-              if (participant.isLocal) {
-                displayNameInput.value = nm;
-                updateSavedSession({ displayName: nm });
-                const d = document.getElementById('meeting-self-name-display');
-                if (d) d.textContent = nm;
-              }
-              updateChatAuthorLabels(participant.identity, nm);
-              const label = participant.isLocal ? `${nm} (ты)` : nm;
-              const tile = document.querySelector(`[data-participant="${participant.identity}"]`);
-              if (tile) {
-                const lab = tile.querySelector('.video-label');
-                if (lab) lab.textContent = label;
-              }
-            });
-          }
+          const nameChangedEv =
+            LivekitClient.RoomEvent && LivekitClient.RoomEvent.ParticipantNameChanged !== undefined
+              ? LivekitClient.RoomEvent.ParticipantNameChanged
+              : 'participantNameChanged';
+          room.on(nameChangedEv, (participant, nameArg) => {
+            if (!participant) return;
+            let nm;
+            if (typeof nameArg === 'string' && nameArg.trim()) {
+              nm = nameArg.trim().slice(0, 50);
+            } else {
+              const trimmed = participant.name && String(participant.name).trim();
+              nm = trimmed ? trimmed.slice(0, 50) : participant.identity;
+            }
+            applyParticipantDisplayName(participant.identity, nm, !!participant.isLocal);
+          });
 
           room
             .on(LivekitClient.RoomEvent.TrackSubscribed, (track, publication, participant) => {
@@ -1289,6 +1304,15 @@
               try {
                 const raw = new TextDecoder().decode(payload);
                 const data = JSON.parse(raw);
+                if (data.type === 'display-name-sync') {
+                  const pid = data.identity;
+                  if (!participant || participant.identity !== pid) return;
+                  const nm = String(data.displayName || '').trim().slice(0, 50);
+                  if (!nm) return;
+                  const isLocal = !!(room && room.localParticipant && room.localParticipant.identity === pid);
+                  applyParticipantDisplayName(pid, nm, isLocal);
+                  return;
+                }
                 if (data.type === 'chat' && data.text) {
                   const author = participant?.name || participant?.identity || 'Участник';
                   const pid = participant?.identity || null;
