@@ -65,3 +65,10 @@ class ChatMessageLogRequest(BaseModel):
     invite_token: str = Field(min_length=8)
     display_name: str = Field(min_length=1, max_length=50)
     text: str = Field(min_length=1, max_length=1000)
+    participant_identity: Optional[str] = Field(default=None, max_length=64)
+
+
+class ChatAuthorSyncRequest(BaseModel):
+    invite_token: str = Field(min_length=8)
+    participant_identity: str = Field(min_length=1, max_length=64)
+    display_name: str = Field(min_length=1, max_length=50)

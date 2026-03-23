@@ -26,7 +26,37 @@
     <main class="container home-shell">
       <div class="home-grid">
         <header class="home-hero">
-          <h1 class="home-hero-title">Созвон по ссылке</h1>
+          <div class="home-hero-head">
+            <h1 class="home-hero-title">Созвон по ссылке</h1>
+            <div class="home-settings-wrap">
+              <button
+                type="button"
+                id="home-settings-btn"
+                class="home-settings-trigger"
+                aria-label="Настройки"
+                aria-expanded="false"
+                aria-haspopup="true"
+                aria-controls="home-settings-menu"
+              >
+                <svg class="home-settings-gear" viewBox="0 0 24 24" aria-hidden="true" width="22" height="22">
+                  <path
+                    fill="currentColor"
+                    d="M19.14 12.94c.04-.31.06-.63.06-.94 0-.31-.02-.63-.07-.94l2.03-1.58a.5.5 0 0 0 .12-.64l-1.92-3.32a.5.5 0 0 0-.6-.22l-2.39.96c-.52-.4-1.08-.73-1.69-.98l-.36-2.54a.5.5 0 0 0-.5-.42h-3.84c-.24 0-.45.17-.49.41l-.36 2.54c-.61.25-1.17.59-1.69.98l-2.39-.96a.5.5 0 0 0-.6.22L2.74 8.87c-.12.21-.08.47.12.64l2.03 1.58c-.05.31-.08.63-.08.94s.02.63.08.94l-2.03 1.58a.5.5 0 0 0-.12.64l1.92 3.32c.12.22.37.3.59.22l2.39-.96c.52.4 1.08.73 1.69.98l.36 2.54c.05.24.25.41.49.41h3.84c.24 0 .45-.17.49-.41l.36-2.54c.61-.25 1.17-.59 1.69-.98l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.49-.12-.64l-2.01-1.58zM12 15.6A3.6 3.6 0 1 1 12 8.4a3.6 3.6 0 0 1 0 7.2z"
+                  />
+                </svg>
+              </button>
+              <div id="home-settings-menu" class="home-settings-menu hidden" role="menu" aria-hidden="true">
+                {% if telegram_alerting_available %}
+                <label class="home-settings-item">
+                  <input type="checkbox" id="settings-telegram-alert" />
+                  <span>Итоги созвона в Telegram</span>
+                </label>
+                {% else %}
+                <p class="home-settings-muted">Итоги в Telegram недоступны на сервере</p>
+                {% endif %}
+              </div>
+            </div>
+          </div>
           <p class="muted home-hero-lead">
             Создай комнату, отправь ссылку собеседнику — видео, чат и демонстрация экрана в браузере, без приложений.
           </p>
@@ -70,15 +100,6 @@
             />
             <div id="room-password-error" class="error-text"></div>
           </div>
-
-          {% if telegram_alerting_available %}
-          <div class="field-group checkbox-field-group">
-            <label for="telegram-alerts-input" class="checkbox-label">
-              <input id="telegram-alerts-input" type="checkbox" />
-              <span>Отправить итоги созвона в Telegram</span>
-            </label>
-          </div>
-          {% endif %}
 
           <div class="home-create-actions">
             <button id="create-call-btn" class="btn primary create-btn">Создать звонок</button>
@@ -138,6 +159,8 @@
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <script>
+      const telegramAlertingAvailable = {{ telegram_alerting_available | tojson }};
+      const TELEGRAM_PREF_KEY = 'linkra-pref-telegram-alert';
       const createButton = document.getElementById('create-call-btn');
       const instaButton = document.getElementById('insta-btn');
       const copyButton = document.getElementById('copy-link-btn');
@@ -156,7 +179,9 @@
       const toggleInviteExtra = document.getElementById('toggle-invite-extra');
       const inviteExtraPanel = document.getElementById('invite-extra-panel');
       const toastStack = document.getElementById('toast-stack');
-      const telegramAlertsInput = document.getElementById('telegram-alerts-input');
+      const homeSettingsBtn = document.getElementById('home-settings-btn');
+      const homeSettingsMenu = document.getElementById('home-settings-menu');
+      const settingsTelegramAlert = document.getElementById('settings-telegram-alert');
       let lastInvitePayload = null;
       let inviteQrBuilt = false;
 
@@ -175,6 +200,38 @@
       function setFieldError(input, errorEl, message = '') {
         input.classList.toggle('input-error', !!message);
         errorEl.textContent = message;
+      }
+
+      function readTelegramAlertPref() {
+        return localStorage.getItem(TELEGRAM_PREF_KEY) === '1';
+      }
+
+      function writeTelegramAlertPref(on) {
+        localStorage.setItem(TELEGRAM_PREF_KEY, on ? '1' : '0');
+      }
+
+      function setHomeSettingsOpen(open) {
+        if (!homeSettingsMenu || !homeSettingsBtn) return;
+        homeSettingsMenu.classList.toggle('hidden', !open);
+        homeSettingsBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
+        homeSettingsMenu.setAttribute('aria-hidden', open ? 'false' : 'true');
+      }
+
+      if (settingsTelegramAlert) {
+        settingsTelegramAlert.checked = readTelegramAlertPref();
+        settingsTelegramAlert.addEventListener('change', () => {
+          writeTelegramAlertPref(settingsTelegramAlert.checked);
+        });
+      }
+
+      if (homeSettingsBtn && homeSettingsMenu) {
+        homeSettingsBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const open = homeSettingsMenu.classList.contains('hidden');
+          setHomeSettingsOpen(open);
+        });
+        document.addEventListener('click', () => setHomeSettingsOpen(false));
+        homeSettingsMenu.addEventListener('click', (e) => e.stopPropagation());
       }
 
       function clearErrors() {
@@ -286,7 +343,7 @@
 
         const roomTitle = roomTitleInput.value.trim();
         const password = roomPasswordInput.value.trim();
-        const telegramAlertEnabled = !!telegramAlertsInput?.checked;
+        const telegramAlertEnabled = telegramAlertingAvailable && readTelegramAlertPref();
 
         if (roomTitle.length < 4) {
           setFieldError(roomTitleInput, roomTitleError, 'Название комнаты должно содержать минимум 4 символа');

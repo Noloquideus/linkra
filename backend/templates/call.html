@@ -822,9 +822,20 @@
         }
       }
 
-      function addChatMessage(author, text, isOwn = false) {
+      function updateChatAuthorLabels(participantIdentity, displayNameBase) {
+        if (!participantIdentity) return;
+        document.querySelectorAll(`[data-chat-identity="${participantIdentity}"]`).forEach((item) => {
+          const authorEl = item.querySelector('.chat-author');
+          if (!authorEl) return;
+          const suffix = item.classList.contains('own') ? ' (ты)' : '';
+          authorEl.textContent = `${displayNameBase}${suffix}`;
+        });
+      }
+
+      function addChatMessage(author, text, isOwn = false, authorIdentity = null) {
         const item = document.createElement('div');
         item.className = `chat-message${isOwn ? ' own' : ''}`;
+        if (authorIdentity) item.dataset.chatIdentity = authorIdentity;
         const authorEl = document.createElement('div');
         authorEl.className = 'chat-author';
         authorEl.textContent = author;
@@ -837,9 +848,10 @@
         chatMessages.scrollTop = chatMessages.scrollHeight;
       }
 
-      function addFileMessage(author, attachment, isOwn = false) {
+      function addFileMessage(author, attachment, isOwn = false, authorIdentity = null) {
         const item = document.createElement('div');
         item.className = `chat-message file-message${isOwn ? ' own' : ''}`;
+        if (authorIdentity) item.dataset.chatIdentity = authorIdentity;
 
         const authorEl = document.createElement('div');
         authorEl.className = 'chat-author';
@@ -901,15 +913,34 @@
       async function persistChatMessage(text) {
         const inviteToken = getInviteToken();
         if (!inviteToken) return;
+        const pid = room?.localParticipant?.identity || loadCallSession()?.identity;
+        const body = {
+          invite_token: inviteToken,
+          display_name: displayNameInput.value.trim() || 'Участник',
+          text,
+        };
+        if (pid) body.participant_identity = pid;
         await fetch(`/api/calls/${encodeURIComponent(roomName)}/chat-events`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            invite_token: inviteToken,
-            display_name: displayNameInput.value.trim() || 'Участник',
-            text,
-          }),
+          body: JSON.stringify(body),
         });
+      }
+
+      async function syncChatAuthorDisplay(displayName) {
+        const inviteToken = getInviteToken();
+        if (!inviteToken || !room?.localParticipant?.identity) return;
+        try {
+          await fetch(`/api/calls/${encodeURIComponent(roomName)}/chat-author-sync`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              invite_token: inviteToken,
+              participant_identity: room.localParticipant.identity,
+              display_name: displayName.trim().slice(0, 50),
+            }),
+          });
+        } catch (_) {}
       }
 
       async function sendChatMessage() {
@@ -923,7 +954,8 @@
             console.warn('Не удалось сохранить сообщение для Telegram-алерта', error);
           }
           await sendSystemData({ type: 'chat', text, created_at: Date.now() });
-          addChatMessage(`${displayNameInput.value.trim()} (ты)`, text, true);
+          const selfId = room?.localParticipant?.identity || '';
+          addChatMessage(`${displayNameInput.value.trim()} (ты)`, text, true, selfId || null);
           chatInput.value = '';
           chatInput.focus();
         } catch (error) {
@@ -952,6 +984,8 @@
         const formData = new FormData();
         formData.append('file', file);
         formData.append('display_name', displayNameInput.value.trim() || 'Участник');
+        const pid = room?.localParticipant?.identity || loadCallSession()?.identity;
+        if (pid) formData.append('participant_identity', pid);
         setButtonLoading(attachmentBtn, true, 'Загружаем...', '');
 
         try {
@@ -964,7 +998,8 @@
             throw new Error(error.detail || 'Не удалось загрузить файл');
           }
           const attachment = await response.json();
-          addFileMessage(`${displayNameInput.value.trim()} (ты)`, attachment, true);
+          const selfId = room?.localParticipant?.identity || '';
+          addFileMessage(`${displayNameInput.value.trim()} (ты)`, attachment, true, selfId || null);
           await sendSystemData({ type: 'file', attachment, created_at: Date.now() });
           showToast('Файл отправлен', 'success');
         } catch (error) {
@@ -1026,6 +1061,8 @@
           await room.localParticipant.setName(name);
           displayNameInput.value = name;
           updateSavedSession({ displayName: name });
+          updateChatAuthorLabels(room.localParticipant.identity, name);
+          await syncChatAuthorDisplay(name);
           const label = getLocalParticipantLabel();
           const tile = document.querySelector(`[data-participant="${room.localParticipant.identity}"]`);
           if (tile) {
@@ -1116,6 +1153,7 @@
                 const d = document.getElementById('meeting-self-name-display');
                 if (d) d.textContent = nm;
               }
+              updateChatAuthorLabels(participant.identity, nm);
               const label = participant.isLocal ? `${nm} (ты)` : nm;
               const tile = document.querySelector(`[data-participant="${participant.identity}"]`);
               if (tile) {
@@ -1183,11 +1221,13 @@
                 const data = JSON.parse(raw);
                 if (data.type === 'chat' && data.text) {
                   const author = participant?.name || participant?.identity || 'Участник';
-                  addChatMessage(author, data.text, false);
+                  const pid = participant?.identity || null;
+                  addChatMessage(author, data.text, false, pid);
                 }
                 if (data.type === 'file' && data.attachment) {
                   const author = participant?.name || participant?.identity || 'Участник';
-                  addFileMessage(author, data.attachment, false);
+                  const pid = participant?.identity || null;
+                  addFileMessage(author, data.attachment, false, pid);
                 }
                 if (data.type === 'call-finished') {
                   showToast('Звонок завершён', 'info');

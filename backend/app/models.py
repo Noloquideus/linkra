@@ -19,6 +19,7 @@ class AttachmentRecord(BaseModel):
 class ChatEventRecord(BaseModel):
     event_type: str
     author: str
+    author_identity: str | None = None
     text: str | None = None
     attachment_id: str | None = None
     file_name: str | None = None

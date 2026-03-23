@@ -20,6 +20,7 @@ from .schemas import (
     AttachmentListResponse,
     AttachmentResponse,
     CallInfoResponse,
+    ChatAuthorSyncRequest,
     ChatMessageLogRequest,
     CreateCallRequest,
     CreateCallResponse,
@@ -218,9 +219,6 @@ def send_finish_alert(call: CallRecord) -> None:
     if duration_seconds < 60:
         return
     if len(call.participant_names) < 2:
-        return
-    has_activity = bool(call.chat_events or call.attachments)
-    if not has_activity:
         return
     if call.started_at is None:
         return
@@ -446,13 +444,29 @@ async def join_call(room_name: str, payload: JoinCallRequest) -> JoinCallRespons
 @app.post("/api/calls/{room_name}/chat-events")
 def log_chat_message(room_name: str, payload: ChatMessageLogRequest) -> dict[str, str]:
     ensure_call_access(room_name, payload.invite_token)
+    pid = (payload.participant_identity or "").strip() or None
     store.add_chat_event(
         room_name,
         ChatEventRecord(
             event_type="text",
             author=payload.display_name.strip(),
+            author_identity=pid,
             text=payload.text.strip(),
         ),
+    )
+    return {"status": "ok"}
+
+
+@app.post("/api/calls/{room_name}/chat-author-sync")
+def sync_chat_author_display(room_name: str, payload: ChatAuthorSyncRequest) -> dict[str, str]:
+    ensure_call_access(room_name, payload.invite_token)
+    name = payload.display_name.strip()
+    if not name:
+        raise HTTPException(status_code=400, detail="Пустое имя")
+    store.update_chat_events_author_by_identity(
+        room_name,
+        payload.participant_identity.strip(),
+        name,
     )
     return {"status": "ok"}
 
@@ -470,6 +484,7 @@ async def upload_attachment(
     invite_token: str,
     file: UploadFile = File(...),
     display_name: str = Form(default=""),
+    participant_identity: str = Form(default=""),
 ) -> AttachmentResponse:
     ensure_call_access(room_name, invite_token)
     filename = (file.filename or "").strip()
@@ -514,11 +529,13 @@ async def upload_attachment(
     )
     store.add_attachment(room_name, attachment)
     author = display_name.strip() or "Участник"
+    aid = participant_identity.strip() or None
     store.add_chat_event(
         room_name,
         ChatEventRecord(
             event_type="file",
             author=author,
+            author_identity=aid,
             attachment_id=attachment_id,
             file_name=filename,
         ),

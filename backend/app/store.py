@@ -71,6 +71,23 @@ class InMemoryCallStore:
             self._calls[room_name] = updated
             return updated
 
+    def update_chat_events_author_by_identity(
+        self, room_name: str, participant_identity: str, display_name: str
+    ) -> Optional[CallRecord]:
+        with self._lock:
+            call = self._calls.get(room_name)
+            if call is None:
+                return None
+            new_events: list[ChatEventRecord] = []
+            for ev in call.chat_events:
+                if ev.author_identity and ev.author_identity == participant_identity:
+                    new_events.append(ev.model_copy(update={"author": display_name}))
+                else:
+                    new_events.append(ev)
+            updated = call.model_copy(update={"chat_events": new_events})
+            self._calls[room_name] = updated
+            return updated
+
     def add_attachment(self, room_name: str, attachment: AttachmentRecord) -> Optional[CallRecord]:
         with self._lock:
             call = self._calls.get(room_name)

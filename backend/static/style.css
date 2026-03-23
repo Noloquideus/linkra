@@ -63,11 +63,83 @@ body {
   align-items: start;
 }
 
+.home-hero-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px 20px;
+  margin-bottom: 12px;
+}
+
 .home-hero-title {
-  margin: 0 0 12px;
+  margin: 0;
+  flex: 1 1 12rem;
   font-size: clamp(1.75rem, 2vw + 1rem, 2.35rem);
   line-height: 1.2;
   letter-spacing: -0.02em;
+}
+
+.home-settings-wrap {
+  position: relative;
+  flex: 0 0 auto;
+}
+
+.home-settings-trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: rgba(15, 23, 42, 0.55);
+  color: var(--muted);
+  cursor: pointer;
+  transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+}
+
+.home-settings-trigger:hover {
+  color: var(--text);
+  border-color: rgba(148, 163, 184, 0.35);
+  background: rgba(30, 41, 59, 0.75);
+}
+
+.home-settings-menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 40;
+  min-width: 240px;
+  padding: 14px 16px;
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  background: rgba(17, 24, 39, 0.98);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.45);
+}
+
+.home-settings-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin: 0;
+  font-size: 0.95rem;
+  line-height: 1.45;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.home-settings-item input {
+  margin-top: 3px;
+  flex-shrink: 0;
+}
+
+.home-settings-muted {
+  margin: 0;
+  font-size: 0.9rem;
+  line-height: 1.45;
+  color: var(--muted);
 }
 
 .home-hero-lead {
