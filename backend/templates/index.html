@@ -20,14 +20,28 @@
     <link rel="icon" href="/static/favicon.ico" sizes="any" />
     <link rel="stylesheet" href="/static/style.css" />
   </head>
-  <body>
+  <body class="home-page">
     <div id="toast-stack" class="toast-stack"></div>
 
-    <main class="container">
-      <section class="card home-card">
-        <h1>Созвон по ссылке</h1>
-        <p class="muted intro-text">
-          Укажи название комнаты, при необходимости задай пароль, получи ссылку и отправь её другому человеку.
+    <main class="container home-shell">
+      <div class="home-grid">
+        <header class="home-hero">
+          <h1 class="home-hero-title">Созвон по ссылке</h1>
+          <p class="muted home-hero-lead">
+            Создай комнату, отправь ссылку собеседнику — видео, чат и демонстрация экрана в браузере, без приложений.
+          </p>
+          <ul class="home-features" aria-label="Возможности">
+            <li>Камера и микрофон без установки</li>
+            <li>Чат и файлы в комнате</li>
+            <li>Короткая ссылка и QR для телефона</li>
+          </ul>
+        </header>
+
+        <div class="home-panel">
+          <section class="card home-card">
+        <h2 class="home-card-title">Новая комната</h2>
+        <p class="muted home-card-hint">
+          Укажи название комнаты, при необходимости задай пароль, затем получи ссылку.
         </p>
 
         <div id="create-form" class="stack-lg">
@@ -70,22 +84,33 @@
 
         <div id="result" class="result hidden stack-lg">
           <div class="field-group">
-            <label for="invite-link">Полная ссылка приглашения</label>
-            <input id="invite-link" type="text" readonly />
-          </div>
-
-          <button id="copy-link-btn" class="btn secondary copy-btn" type="button">Копировать</button>
-
-          <div class="field-group">
-            <label for="short-invite-link">Короткая ссылка</label>
+            <label for="short-invite-link">Ссылка приглашения</label>
             <input id="short-invite-link" type="text" readonly />
           </div>
 
-          <button id="copy-short-btn" class="btn secondary copy-short-btn" type="button">Копировать короткую</button>
+          <button id="copy-short-btn" class="btn primary copy-short-btn" type="button">Копировать</button>
 
-          <div class="invite-qr-section">
-            <div class="invite-qr-label muted">QR-код (короткая ссылка)</div>
-            <div id="invite-qr" class="invite-qr"></div>
+          <div class="home-result-extra">
+            <button
+              type="button"
+              id="toggle-invite-extra"
+              class="btn secondary home-toggle-extra"
+              aria-expanded="false"
+              aria-controls="invite-extra-panel"
+            >
+              Показать полную ссылку и QR-код
+            </button>
+            <div id="invite-extra-panel" class="invite-extra-panel hidden">
+              <div class="field-group">
+                <label for="invite-link">Полная ссылка</label>
+                <input id="invite-link" type="text" readonly />
+              </div>
+              <button id="copy-link-btn" class="btn secondary copy-btn" type="button">Копировать полную</button>
+              <div class="invite-qr-section">
+                <div class="invite-qr-label muted">QR-код (короткая ссылка)</div>
+                <div id="invite-qr" class="invite-qr"></div>
+              </div>
+            </div>
           </div>
 
           <p id="room-title-result" class="muted room-title-result"></p>
@@ -94,7 +119,9 @@
             Перейти в звонок
           </a>
         </div>
-      </section>
+          </section>
+        </div>
+      </div>
     </main>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
@@ -113,8 +140,12 @@
       const openLink = document.getElementById('open-link');
       const shortInviteLinkInput = document.getElementById('short-invite-link');
       const inviteQrEl = document.getElementById('invite-qr');
+      const toggleInviteExtra = document.getElementById('toggle-invite-extra');
+      const inviteExtraPanel = document.getElementById('invite-extra-panel');
       const toastStack = document.getElementById('toast-stack');
       const telegramAlertsInput = document.getElementById('telegram-alerts-input');
+      let lastInvitePayload = null;
+      let inviteQrBuilt = false;
 
       function showToast(message, type = 'info') {
         const toast = document.createElement('div');
@@ -138,10 +169,50 @@
         setFieldError(roomPasswordInput, roomPasswordError, '');
       }
 
+      function resetInviteExtraPanel() {
+        inviteQrBuilt = false;
+        inviteQrEl.innerHTML = '';
+        inviteExtraPanel.classList.add('hidden');
+        toggleInviteExtra.setAttribute('aria-expanded', 'false');
+        toggleInviteExtra.textContent = 'Показать полную ссылку и QR-код';
+      }
+
+      function ensureInviteQr() {
+        if (inviteQrBuilt || !lastInvitePayload) return;
+        const qrTarget = lastInvitePayload.short_invite_link || lastInvitePayload.invite_link;
+        if (!qrTarget || typeof QRCode === 'undefined') return;
+        inviteQrEl.innerHTML = '';
+        new QRCode(inviteQrEl, {
+          text: qrTarget,
+          width: 200,
+          height: 200,
+          colorDark: '#0f172a',
+          colorLight: '#ffffff',
+          correctLevel: QRCode.CorrectLevel.M,
+        });
+        inviteQrBuilt = true;
+      }
+
+      toggleInviteExtra.addEventListener('click', () => {
+        const collapsed = inviteExtraPanel.classList.contains('hidden');
+        if (collapsed) {
+          inviteExtraPanel.classList.remove('hidden');
+          toggleInviteExtra.setAttribute('aria-expanded', 'true');
+          toggleInviteExtra.textContent = 'Скрыть полную ссылку и QR-код';
+          ensureInviteQr();
+        } else {
+          inviteExtraPanel.classList.add('hidden');
+          toggleInviteExtra.setAttribute('aria-expanded', 'false');
+          toggleInviteExtra.textContent = 'Показать полную ссылку и QR-код';
+        }
+      });
+
       roomTitleInput.addEventListener('input', () => setFieldError(roomTitleInput, roomTitleError, ''));
       roomPasswordInput.addEventListener('input', () => setFieldError(roomPasswordInput, roomPasswordError, ''));
       inviteLinkInput.addEventListener('click', () => inviteLinkInput.select());
       shortInviteLinkInput.addEventListener('click', () => shortInviteLinkInput.select());
+
+      roomTitleInput.focus();
 
       createButton.addEventListener('click', async () => {
         clearErrors();
@@ -182,27 +253,17 @@
           const data = await response.json();
           const finalRoomTitle = data.room_title || roomTitle || 'Без названия';
 
+          resetInviteExtraPanel();
+          lastInvitePayload = data;
           inviteLinkInput.value = data.invite_link;
           shortInviteLinkInput.value = data.short_invite_link || '';
-          openLink.href = data.invite_link;
+          openLink.href = data.short_invite_link || data.invite_link;
           roomTitleResult.textContent = `Название комнаты: ${finalRoomTitle}`;
           document.title = `${finalRoomTitle} · Linkra`;
 
-          inviteQrEl.innerHTML = '';
-          const qrTarget = data.short_invite_link || data.invite_link;
-          if (typeof QRCode !== 'undefined' && qrTarget) {
-            new QRCode(inviteQrEl, {
-              text: qrTarget,
-              width: 200,
-              height: 200,
-              colorDark: '#0f172a',
-              colorLight: '#ffffff',
-              correctLevel: QRCode.CorrectLevel.M,
-            });
-          }
-
           createForm.classList.add('hidden');
           result.classList.remove('hidden');
+          result.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
           showToast('Ссылка на звонок готова', 'success');
         } catch (error) {
           showToast(error.message || 'Не удалось создать звонок', 'error');
@@ -217,7 +278,7 @@
           await navigator.clipboard.writeText(inviteLinkInput.value);
           copyButton.textContent = 'Скопировано';
           setTimeout(() => {
-            copyButton.textContent = 'Копировать';
+            copyButton.textContent = 'Копировать полную';
           }, 1200);
         } catch {
           showToast('Не удалось скопировать ссылку', 'error');
@@ -229,10 +290,10 @@
           await navigator.clipboard.writeText(shortInviteLinkInput.value);
           copyShortButton.textContent = 'Скопировано';
           setTimeout(() => {
-            copyShortButton.textContent = 'Копировать короткую';
+            copyShortButton.textContent = 'Копировать';
           }, 1200);
         } catch {
-          showToast('Не удалось скопировать короткую ссылку', 'error');
+          showToast('Не удалось скопировать ссылку', 'error');
         }
       });
     </script>
