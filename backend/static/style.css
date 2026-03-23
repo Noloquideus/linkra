@@ -175,14 +175,16 @@ body {
 
 .layout-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 360px;
-  gap: 20px;
-  align-items: start;
+  grid-template-columns: minmax(0, 1fr) minmax(340px, 420px);
+  gap: 24px;
+  align-items: stretch;
 }
 
 .meeting-card {
-  min-height: 620px;
+  min-height: min(72vh, 720px);
   padding-top: 18px;
+  display: flex;
+  flex-direction: column;
 }
 
 .chat-card {
@@ -401,7 +403,7 @@ label span {
   align-items: flex-start;
   gap: 14px;
   margin-bottom: 18px;
-  padding-bottom: 14px;
+  padding-bottom: 16px;
   border-bottom: 1px solid var(--line);
 }
 
@@ -410,21 +412,27 @@ label span {
 }
 
 .meeting-title {
-  font-size: 18px;
+  font-size: 11px;
   font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--muted);
 }
 
 .meeting-room-name {
-  color: var(--muted);
-  font-size: 14px;
-  margin-top: 4px;
+  color: var(--text);
+  font-size: clamp(1.2rem, 1.4vw + 0.85rem, 1.5rem);
+  font-weight: 700;
+  margin-top: 6px;
+  line-height: 1.25;
   word-break: break-word;
 }
 
 .meeting-participant-status {
-  font-size: 13px;
-  margin-top: 8px;
-  font-weight: 500;
+  font-size: 14px;
+  margin-top: 10px;
+  font-weight: 600;
+  color: #93c5fd;
   letter-spacing: 0.02em;
 }
 
@@ -435,6 +443,23 @@ label span {
   gap: 10px;
   flex-wrap: wrap;
   width: 100%;
+}
+
+.meeting-controls .btn.secondary {
+  background: rgba(248, 250, 252, 0.1);
+  color: var(--text);
+  border: 1px solid rgba(148, 163, 184, 0.35);
+}
+
+.meeting-controls .btn.secondary:hover:not(:disabled) {
+  background: rgba(248, 250, 252, 0.16);
+}
+
+.meeting-controls .invite-inline-btn {
+  flex-shrink: 0;
+  white-space: nowrap;
+  padding: 10px 14px;
+  font-size: 14px;
 }
 
 .icon-btn {
@@ -493,9 +518,44 @@ label span {
 }
 
 .videos {
+  flex: 1;
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(460px, 1fr));
   gap: 20px;
+  min-height: 280px;
+  align-content: start;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+}
+
+.videos.layout-1 {
+  grid-template-columns: minmax(280px, min(560px, 100%));
+  justify-content: center;
+  justify-items: stretch;
+}
+
+.videos.layout-2 {
+  grid-template-columns: repeat(2, minmax(260px, 1fr));
+  max-width: 1040px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.videos.layout-3-4 {
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+}
+
+.videos.layout-many {
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+}
+
+@media (min-width: 900px) {
+  .videos.layout-1 .video-tile {
+    min-height: 380px;
+  }
+
+  .videos.layout-1 .media-slot {
+    height: 420px;
+    min-height: 300px;
+  }
 }
 
 .video-tile {
@@ -740,7 +800,10 @@ label span {
   display: flex;
   gap: 12px;
   margin-top: 16px;
-  padding: 16px;
+  margin-left: auto;
+  margin-right: auto;
+  max-width: 480px;
+  padding: 14px 18px;
   border: 1px solid var(--line);
   border-radius: 18px;
   background: rgba(11, 18, 32, 0.96);
@@ -749,6 +812,8 @@ label span {
   transform: translateY(18px);
   pointer-events: none;
   transition: opacity 0.22s ease, transform 0.22s ease;
+  justify-content: center;
+  flex-wrap: wrap;
 }
 
 .call-bottom-actions.is-visible {
@@ -759,8 +824,10 @@ label span {
 
 .leave-bottom-btn,
 .finish-call-btn {
-  flex: 1 1 0;
-  min-height: 52px;
+  flex: 1 1 auto;
+  min-width: 160px;
+  max-width: 220px;
+  min-height: 48px;
   border-radius: 14px;
 }
 
@@ -773,6 +840,35 @@ label span {
 .finish-call-btn {
   background: var(--danger);
   color: #fff;
+}
+
+@media (min-width: 900px) {
+  .meeting-topbar {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px 24px;
+  }
+
+  .meeting-title-wrap {
+    flex: 1 1 220px;
+    max-width: min(100%, 520px);
+  }
+
+  .meeting-controls {
+    flex: 0 1 auto;
+    width: auto;
+    max-width: min(100%, 640px);
+    justify-content: flex-end;
+  }
+}
+
+@media (min-width: 1201px) {
+  .chat-messages {
+    min-height: 320px;
+    max-height: min(70vh, 680px);
+  }
 }
 
 @media (max-width: 1200px) {
@@ -877,11 +973,14 @@ label span {
   .call-bottom-actions {
     flex-direction: column;
     padding: 12px;
+    max-width: none;
+    width: 100%;
   }
 
   .leave-bottom-btn,
   .finish-call-btn {
     width: 100%;
+    max-width: none;
   }
 }
 
