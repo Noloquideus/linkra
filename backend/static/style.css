@@ -839,6 +839,11 @@ select.device-select-input {
   position: relative;
   width: 100%;
   min-width: 0;
+  z-index: 1;
+}
+
+.custom-device-select.is-open {
+  z-index: 40;
 }
 
 .custom-device-select-trigger {
@@ -851,18 +856,21 @@ select.device-select-input {
   padding: 10px 14px;
   border-radius: 12px;
   border: 1px solid var(--line);
-  background: #0b1220;
+  background-color: #0b1220;
+  background-image: linear-gradient(180deg, rgba(248, 250, 252, 0.06), transparent 48%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
   color: var(--text);
   font-family: inherit;
   font-size: 15px;
   font-weight: 500;
   cursor: pointer;
   text-align: left;
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease;
 }
 
 .custom-device-select-trigger:hover:not(:disabled) {
   border-color: rgba(148, 163, 184, 0.45);
+  background-color: #0d1528;
 }
 
 .custom-device-select-trigger:focus {
@@ -893,30 +901,38 @@ select.device-select-input {
 }
 
 .custom-device-select-chevron {
-  width: 8px;
-  height: 8px;
-  border-right: 2px solid var(--muted);
-  border-bottom: 2px solid var(--muted);
-  transform: rotate(45deg) translateY(-2px);
+  width: 0;
+  height: 0;
+  border: none;
+  border-left: 5px solid transparent;
+  border-right: 5px solid transparent;
+  border-top: 6px solid rgba(148, 163, 184, 0.95);
+  transform: translateY(2px);
   flex-shrink: 0;
-  opacity: 0.9;
+  opacity: 0.95;
 }
 
 .custom-device-select.is-open .custom-device-select-chevron {
-  transform: rotate(-135deg) translateY(1px);
+  transform: translateY(0) rotate(180deg);
 }
 
 .custom-device-select-menu {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: calc(100% + 6px);
   display: block;
-  margin: 8px 0 0;
+  margin: 0;
   padding: 6px;
   list-style: none;
   max-height: min(260px, 42vh);
+  overflow-x: hidden;
   overflow-y: auto;
   border-radius: 14px;
-  border: 1px solid var(--line);
-  background: linear-gradient(180deg, #111827 0%, #0b1220 100%);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04), 0 16px 36px rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  background: linear-gradient(168deg, #151c2e 0%, #0b1220 55%, #080d18 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 20px 44px rgba(0, 0, 0, 0.45);
+  z-index: 50;
 }
 
 .custom-device-select-menu[hidden] {
@@ -925,11 +941,16 @@ select.device-select-input {
 
 .custom-device-select-menu li {
   margin: 0;
+  padding: 0;
+  list-style: none;
+  width: 100%;
 }
 
 .custom-device-select-option {
   display: block;
   width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
   margin: 0;
   padding: 10px 12px;
   border: none;
@@ -942,14 +963,22 @@ select.device-select-input {
   text-align: left;
   cursor: pointer;
   line-height: 1.35;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .custom-device-select-option:hover {
-  background: rgba(37, 99, 235, 0.2);
+  background: rgba(37, 99, 235, 0.22);
+}
+
+.custom-device-select-option:focus {
+  outline: none;
+  background: rgba(37, 99, 235, 0.28);
 }
 
 .custom-device-select-option.is-selected {
-  background: rgba(37, 99, 235, 0.35);
+  background: rgba(37, 99, 235, 0.38);
   color: #fff;
 }
 
@@ -987,11 +1016,21 @@ select.device-select-input {
 }
 
 .meeting-settings-title {
+  display: flex;
+  align-items: center;
+  gap: 12px;
   margin: 0;
   font-size: 1.28rem;
   font-weight: 700;
   letter-spacing: -0.02em;
   color: var(--text);
+}
+
+.meeting-settings-title-gear {
+  flex-shrink: 0;
+  width: 26px;
+  height: 26px;
+  color: #94a3b8;
 }
 
 .meeting-settings-close {
@@ -1041,12 +1080,6 @@ select.device-select-input {
   gap: 16px;
 }
 
-.icon-btn.meeting-settings-btn .meeting-settings-gear {
-  display: block;
-  width: 24px;
-  height: 24px;
-}
-
 .icon-btn.meeting-settings-btn:disabled .meeting-settings-gear {
   opacity: 0.45;
 }
@@ -1089,6 +1122,10 @@ select.device-select-input {
   width: 22px;
   height: 22px;
   color: #e2e8f0;
+}
+
+.icon-btn .icon-svg.meeting-settings-gear {
+  display: block;
 }
 
 .icon-btn.is-off {
