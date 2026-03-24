@@ -64,6 +64,17 @@
               <div id="room-password-error" class="error-text"></div>
             </div>
 
+            <div class="device-select-group prejoin-device-selects">
+              <div class="field-group device-select-field">
+                <label for="prejoin-mic-select">Микрофон</label>
+                <select id="prejoin-mic-select" class="device-select-input"></select>
+              </div>
+              <div class="field-group device-select-field">
+                <label for="prejoin-cam-select">Камера</label>
+                <select id="prejoin-cam-select" class="device-select-input"></select>
+              </div>
+            </div>
+
             <div class="prejoin-audio-meter-card">
               <div class="audio-meter-head">
                 <span>Проверка микрофона</span>
@@ -158,6 +169,17 @@
               <div id="call-timer" class="meeting-timer">00:00</div>
 
               <button id="copy-invite-btn" class="btn secondary invite-inline-btn" disabled>Скопировать ссылку</button>
+            </div>
+
+            <div class="meeting-device-bar" id="meeting-device-bar">
+              <div class="field-group device-select-field">
+                <label for="meeting-mic-select">Микрофон</label>
+                <select id="meeting-mic-select" class="device-select-input" disabled></select>
+              </div>
+              <div class="field-group device-select-field">
+                <label for="meeting-cam-select">Камера</label>
+                <select id="meeting-cam-select" class="device-select-input" disabled></select>
+              </div>
             </div>
           </div>
 
@@ -254,6 +276,10 @@
       const attachmentInput = document.getElementById('attachment-input');
       const attachmentBtn = document.getElementById('attachment-btn');
       const chatDropzone = document.getElementById('chat-dropzone');
+      const prejoinMicSelect = document.getElementById('prejoin-mic-select');
+      const prejoinCamSelect = document.getElementById('prejoin-cam-select');
+      const meetingMicSelect = document.getElementById('meeting-mic-select');
+      const meetingCamSelect = document.getElementById('meeting-cam-select');
 
       let room = null;
       let micEnabled = true;
@@ -269,6 +295,9 @@
       let intentionalDisconnect = false;
       let reconnectInProgress = false;
       let activeReconnectAttempt = 0;
+      let preferredAudioDeviceId = '';
+      let preferredVideoDeviceId = '';
+      let deviceListDebounce = null;
 
       function showToast(message, type = 'info') {
         const toast = document.createElement('div');
@@ -416,6 +445,9 @@
           if (!el) return;
           el.disabled = disabled;
         });
+        const allowMeetingDevices = !disabled && !!room;
+        if (meetingMicSelect) meetingMicSelect.disabled = !allowMeetingDevices;
+        if (meetingCamSelect) meetingCamSelect.disabled = !allowMeetingDevices;
       }
 
       function showReconnectBanner(message, { loading = false, showRetry = false } = {}) {
@@ -457,6 +489,8 @@
             roomPassword: parsed.roomPassword || '',
             micEnabled: parsed.micEnabled ?? true,
             cameraEnabled: parsed.cameraEnabled ?? true,
+            audioDeviceId: parsed.audioDeviceId || '',
+            videoDeviceId: parsed.videoDeviceId || '',
           };
         } catch {
           return null;
@@ -565,6 +599,118 @@
         updatePreviewVisibility();
       }
 
+
+      function pickValidDeviceId(devices, id) {
+        if (!id) return '';
+        return devices.some((d) => d.deviceId === id) ? id : '';
+      }
+
+      function fillDeviceSelectOptions(selectEl, devices, selectedId) {
+        if (!selectEl) return '';
+        const valid = pickValidDeviceId(devices, selectedId);
+        selectEl.innerHTML = '';
+        const def = document.createElement('option');
+        def.value = '';
+        def.textContent = 'По умолчанию';
+        selectEl.appendChild(def);
+        devices.forEach((d) => {
+          const opt = document.createElement('option');
+          opt.value = d.deviceId;
+          opt.textContent = d.label || `Устройство (${String(d.deviceId).slice(0, 6)}…)`;
+          selectEl.appendChild(opt);
+        });
+        selectEl.value = valid;
+        return valid;
+      }
+
+      async function refreshAudioVideoDeviceLists() {
+        if (!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) return;
+        let list;
+        try {
+          list = await navigator.mediaDevices.enumerateDevices();
+        } catch {
+          return;
+        }
+        const mics = list.filter((d) => d.kind === 'audioinput');
+        const cams = list.filter((d) => d.kind === 'videoinput');
+        const pa = fillDeviceSelectOptions(prejoinMicSelect, mics, preferredAudioDeviceId);
+        fillDeviceSelectOptions(meetingMicSelect, mics, pa);
+        const pv = fillDeviceSelectOptions(prejoinCamSelect, cams, preferredVideoDeviceId);
+        fillDeviceSelectOptions(meetingCamSelect, cams, pv);
+        preferredAudioDeviceId = pa;
+        preferredVideoDeviceId = pv;
+        if (meetingMicSelect) meetingMicSelect.value = pa;
+        if (meetingCamSelect) meetingCamSelect.value = pv;
+      }
+
+      function syncPreferredFromSelects(fromMeeting) {
+        if (fromMeeting) {
+          preferredAudioDeviceId = meetingMicSelect?.value || '';
+          preferredVideoDeviceId = meetingCamSelect?.value || '';
+          if (prejoinMicSelect) prejoinMicSelect.value = preferredAudioDeviceId;
+          if (prejoinCamSelect) prejoinCamSelect.value = preferredVideoDeviceId;
+        } else {
+          preferredAudioDeviceId = prejoinMicSelect?.value || '';
+          preferredVideoDeviceId = prejoinCamSelect?.value || '';
+          if (meetingMicSelect) meetingMicSelect.value = preferredAudioDeviceId;
+          if (meetingCamSelect) meetingCamSelect.value = preferredVideoDeviceId;
+        }
+      }
+
+      function micCaptureOptions() {
+        const o = { echoCancellation: true, noiseSuppression: true, autoGainControl: true };
+        if (preferredAudioDeviceId) o.deviceId = preferredAudioDeviceId;
+        return o;
+      }
+
+      function camCaptureOptions() {
+        return preferredVideoDeviceId ? { deviceId: preferredVideoDeviceId } : {};
+      }
+
+      function hydrateDevicePreferencesFromSession() {
+        const saved = loadCallSession();
+        if (!saved || saved.roomName !== roomName || saved.inviteToken !== getInviteToken()) return;
+        preferredAudioDeviceId = saved.audioDeviceId || '';
+        preferredVideoDeviceId = saved.videoDeviceId || '';
+      }
+
+
+      function scheduleDeviceListRefresh() {
+        if (deviceListDebounce) clearTimeout(deviceListDebounce);
+        deviceListDebounce = setTimeout(() => {
+          deviceListDebounce = null;
+          void refreshAudioVideoDeviceLists();
+        }, 400);
+      }
+
+
+      async function applyMeetingAudioDevice() {
+        if (!room) return;
+        syncPreferredFromSelects(true);
+        updateSavedSession({ audioDeviceId: preferredAudioDeviceId || '' });
+        if (!micEnabled) return;
+        try {
+          await room.localParticipant.setMicrophoneEnabled(true, micCaptureOptions());
+        } catch (error) {
+          showToast(error.message || 'Не удалось переключить микрофон', 'error');
+        }
+      }
+
+
+      async function applyMeetingVideoDevice() {
+        if (!room) return;
+        syncPreferredFromSelects(true);
+        updateSavedSession({ videoDeviceId: preferredVideoDeviceId || '' });
+        if (!cameraEnabled) return;
+        try {
+          await room.localParticipant.setCameraEnabled(true, camCaptureOptions());
+          attachExistingLocalTracks(displayNameInput.value.trim() || 'Ты');
+        } catch (error) {
+          showToast(error.message || 'Не удалось переключить камеру', 'error');
+        }
+      }
+
+
       async function refreshPrejoinPreview() {
         updatePreviewAvatar();
         audioMeterState.textContent = micEnabled ? 'Готов' : 'Микрофон выключен';
@@ -572,18 +718,48 @@
 
         if (!cameraEnabled && !micEnabled) {
           updatePreviewVisibility();
+          await refreshAudioVideoDeviceLists();
           return;
         }
 
+        const audioConstr = !micEnabled ? false : preferredAudioDeviceId ? { deviceId: { exact: preferredAudioDeviceId } } : true;
+        const videoConstr = !cameraEnabled ? false : preferredVideoDeviceId ? { deviceId: { exact: preferredVideoDeviceId } } : true;
+
+        const tryAcquire = async (a, v) => navigator.mediaDevices.getUserMedia({ audio: a, video: v });
+
         try {
-          const stream = await navigator.mediaDevices.getUserMedia({ video: cameraEnabled, audio: micEnabled });
+          const stream = await tryAcquire(audioConstr, videoConstr);
           previewStream = stream;
           if (cameraEnabled && stream.getVideoTracks().length) {
             previewVideo.srcObject = new MediaStream([stream.getVideoTracks()[0]]);
           }
           updatePreviewVisibility();
           startPreviewMeter(stream);
+          await refreshAudioVideoDeviceLists();
         } catch (error) {
+          if (preferredAudioDeviceId || preferredVideoDeviceId) {
+            preferredAudioDeviceId = '';
+            preferredVideoDeviceId = '';
+            syncPreferredFromSelects(false);
+            try {
+              const stream = await tryAcquire(micEnabled, cameraEnabled);
+              previewStream = stream;
+              if (cameraEnabled && stream.getVideoTracks().length) {
+                previewVideo.srcObject = new MediaStream([stream.getVideoTracks()[0]]);
+              }
+              updatePreviewVisibility();
+              startPreviewMeter(stream);
+              await refreshAudioVideoDeviceLists();
+              showToast('Устройство недоступно — используется вариант по умолчанию', 'info');
+            } catch (e2) {
+              console.error('Не удалось получить доступ к устройствам', e2);
+              setStatus('нет доступа к камере или микрофону', 'error');
+              audioMeterState.textContent = 'Нет доступа';
+              updatePreviewVisibility();
+              showToast('Не удалось получить доступ к камере или микрофону', 'error');
+            }
+            return;
+          }
           console.error('Не удалось получить доступ к устройствам', error);
           setStatus('нет доступа к камере или микрофону', 'error');
           audioMeterState.textContent = 'Нет доступа';
@@ -1227,6 +1403,8 @@
             roomPassword,
             micEnabled,
             cameraEnabled,
+            audioDeviceId: preferredAudioDeviceId || '',
+            videoDeviceId: preferredVideoDeviceId || '',
           });
 
           await stopPrejoinPreview();
@@ -1338,6 +1516,8 @@
               const wasIntentional = intentionalDisconnect;
               const hasSavedSession = !!loadCallSession();
               room = null;
+              if (meetingMicSelect) meetingMicSelect.disabled = true;
+              if (meetingCamSelect) meetingCamSelect.disabled = true;
               leaveBtn.disabled = true;
               micBtn.disabled = true;
               cameraBtn.disabled = true;
@@ -1381,9 +1561,10 @@
           });
 
           setStatus('подключён', 'success');
-          await room.localParticipant.setMicrophoneEnabled(micEnabled);
-          await room.localParticipant.setCameraEnabled(cameraEnabled);
+          await room.localParticipant.setMicrophoneEnabled(micEnabled, micCaptureOptions());
+          await room.localParticipant.setCameraEnabled(cameraEnabled, camCaptureOptions());
           attachExistingLocalTracks(displayName);
+          await refreshAudioVideoDeviceLists();
           room.remoteParticipants.forEach((participant) => refreshRemoteParticipantMedia(participant));
           leaveBtn.disabled = false;
           micBtn.disabled = false;
@@ -1447,6 +1628,8 @@
         roomPasswordInput.value = saved.roomPassword || '';
         micEnabled = saved.micEnabled ?? true;
         cameraEnabled = saved.cameraEnabled ?? true;
+        preferredAudioDeviceId = saved.audioDeviceId || '';
+        preferredVideoDeviceId = saved.videoDeviceId || '';
         updateAllControlButtons();
         showReconnectBanner('Переподключаем…', { loading: true, showRetry: false });
         try {
@@ -1526,7 +1709,7 @@
         if (!room) return;
         try {
           micEnabled = !micEnabled;
-          await room.localParticipant.setMicrophoneEnabled(micEnabled);
+          await room.localParticipant.setMicrophoneEnabled(micEnabled, micCaptureOptions());
           setParticipantMicState(room.localParticipant.identity, micEnabled);
           updateSavedSession({ micEnabled });
           updateAllControlButtons();
@@ -1541,7 +1724,7 @@
         if (!room) return;
         try {
           cameraEnabled = !cameraEnabled;
-          await room.localParticipant.setCameraEnabled(cameraEnabled);
+          await room.localParticipant.setCameraEnabled(cameraEnabled, camCaptureOptions());
           const label = getLocalParticipantLabel();
           if (cameraEnabled) attachExistingLocalTracks(displayNameInput.value.trim() || 'Ты');
           else {
@@ -1579,6 +1762,30 @@
         updateAllControlButtons();
         await refreshPrejoinPreview();
       });
+
+      prejoinMicSelect?.addEventListener('change', async () => {
+        syncPreferredFromSelects(false);
+        updateSavedSession({ audioDeviceId: preferredAudioDeviceId || '' });
+        await refreshPrejoinPreview();
+      });
+
+      prejoinCamSelect?.addEventListener('change', async () => {
+        syncPreferredFromSelects(false);
+        updateSavedSession({ videoDeviceId: preferredVideoDeviceId || '' });
+        await refreshPrejoinPreview();
+      });
+
+      meetingMicSelect?.addEventListener('change', () => {
+        void applyMeetingAudioDevice();
+      });
+
+      meetingCamSelect?.addEventListener('change', () => {
+        void applyMeetingVideoDevice();
+      });
+
+      if (navigator.mediaDevices?.addEventListener) {
+        navigator.mediaDevices.addEventListener('devicechange', scheduleDeviceListRefresh);
+      }
 
       displayNameInput.addEventListener('input', () => {
         setFieldError(displayNameInput, displayNameError, '');
@@ -1662,6 +1869,7 @@
       window.addEventListener('resize', updateBottomActionsVisibility);
 
       async function runInitialJoinFlow() {
+        hydrateDevicePreferencesFromSession();
         setButtonLoading(joinBtn, false, 'Подключаем...', 'Войти в звонок');
         setButtonLoading(finishBtn, false, 'Завершаем...', 'Завершить');
         setButtonLoading(leaveBtn, false, 'Выходим...', 'Выйти');
@@ -1703,6 +1911,7 @@
           await joinCall({ instaAuto: true });
           if (room) return;
         }
+        hydrateDevicePreferencesFromSession();
         updateAllControlButtons();
         showPrejoinScreen();
         updatePreviewAvatar();

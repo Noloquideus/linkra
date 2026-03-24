@@ -723,6 +723,65 @@ label span {
   font-size: 14px;
 }
 
+.meeting-device-bar {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px 16px;
+  width: 100%;
+  flex: 1 1 100%;
+  max-width: 100%;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: rgba(15, 23, 42, 0.45);
+  border: 1px solid rgba(148, 163, 184, 0.15);
+}
+
+.meeting-device-bar .device-select-field {
+  margin-top: 0;
+}
+
+.meeting-device-bar .device-select-field + .device-select-field {
+  margin-top: 0;
+}
+
+.device-select-group {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px 16px;
+  width: 100%;
+}
+
+.prejoin-device-selects .device-select-field {
+  margin-top: 0;
+}
+
+.prejoin-device-selects .device-select-field + .device-select-field {
+  margin-top: 0;
+}
+
+.device-select-input {
+  width: 100%;
+  margin: 0;
+  padding: 10px 12px;
+  font-size: 15px;
+  border-radius: 12px;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  background: rgba(15, 23, 42, 0.85);
+  color: var(--text);
+}
+
+.device-select-input:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+@media (max-width: 640px) {
+  .device-select-group,
+  .meeting-device-bar {
+    grid-template-columns: 1fr;
+  }
+}
+
 .icon-btn {
   width: 50px;
   height: 50px;
