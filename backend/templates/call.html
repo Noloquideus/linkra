@@ -519,6 +519,8 @@
         });
         const allowMeetingChrome = !disabled && !!room;
         if (meetingSettingsBtn) meetingSettingsBtn.disabled = !allowMeetingChrome;
+        if (meetingSettingsName) meetingSettingsName.disabled = !allowMeetingChrome;
+        if (meetingSettingsSaveNameBtn) meetingSettingsSaveNameBtn.disabled = !allowMeetingChrome;
         setMeetingSettingsTriggersDisabled(!allowMeetingChrome);
       }
 
@@ -1969,34 +1971,18 @@
         await refreshPrejoinPreview();
       });
 
-      prejoinMicSelect?.addEventListener('change', async () => {
-        syncPreferredFromSelects(false);
-        updateSavedSession({ audioDeviceId: preferredAudioDeviceId || '' });
-        await refreshPrejoinPreview();
+      meetingSettingsBtn?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (!room || meetingSettingsBtn.disabled) return;
+        setMeetingSettingsOpen(!meetingSettingsOpen);
       });
 
-      prejoinCamSelect?.addEventListener('change', async () => {
-        syncPreferredFromSelects(false);
-        updateSavedSession({ videoDeviceId: preferredVideoDeviceId || '' });
-        await refreshPrejoinPreview();
-      });
+      meetingSettingsBackdrop?.addEventListener('click', () => setMeetingSettingsOpen(false));
 
-      meetingMicSelect?.addEventListener('change', () => {
-        void applyMeetingAudioDevice();
-      });
+      meetingSettingsClose?.addEventListener('click', () => setMeetingSettingsOpen(false));
 
-      meetingCamSelect?.addEventListener('change', () => {
-        void applyMeetingVideoDevice();
-      });
-
-      prejoinOutputSelect?.addEventListener('change', async () => {
-        syncPreferredFromSelects(false);
-        updateSavedSession({ audioOutputDeviceId: preferredAudioOutputDeviceId || '' });
-        await applyPreferredAudioOutputToAllPlayback();
-      });
-
-      meetingOutputSelect?.addEventListener('change', () => {
-        void applyMeetingAudioOutputDevice();
+      meetingSettingsSaveNameBtn?.addEventListener('click', () => {
+        void saveMeetingSettingsName();
       });
 
       if (navigator.mediaDevices?.addEventListener) {
@@ -2026,7 +2012,6 @@
       micBtn.addEventListener('click', toggleMicrophone);
       cameraBtn.addEventListener('click', toggleCamera);
       screenBtn.addEventListener('click', toggleScreenShare);
-      document.getElementById('rename-self-btn').addEventListener('click', renameSelfInRoom);
       attachmentBtn.addEventListener('click', () => attachmentInput.click());
       attachmentInput.addEventListener('change', async (event) => {
         const [file] = event.target.files || [];
@@ -2134,6 +2119,7 @@
         await refreshPrejoinPreview();
       }
 
+      initCustomDeviceSelects();
       void runInitialJoinFlow();
 
       window.addEventListener('beforeunload', () => {
