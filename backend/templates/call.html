@@ -66,21 +66,33 @@
 
             <div class="device-select-group prejoin-device-selects">
               <div class="field-group device-select-field">
-                <label class="device-select-label" for="prejoin-mic-select">Микрофон</label>
-                <div class="device-select-shell">
-                  <select id="prejoin-mic-select" class="device-select-input"></select>
+                <span class="device-select-label" id="prejoin-mic-dd-label">Микрофон</span>
+                <div class="custom-device-select" data-device-kind="mic" data-select-context="prejoin" data-selected-id="" aria-labelledby="prejoin-mic-dd-label">
+                  <button type="button" class="custom-device-select-trigger" aria-expanded="false" aria-haspopup="listbox">
+                    <span class="custom-device-select-text">По умолчанию</span>
+                    <span class="custom-device-select-chevron" aria-hidden="true"></span>
+                  </button>
+                  <ul class="custom-device-select-menu" role="listbox" hidden></ul>
                 </div>
               </div>
               <div class="field-group device-select-field">
-                <label class="device-select-label" for="prejoin-cam-select">Камера</label>
-                <div class="device-select-shell">
-                  <select id="prejoin-cam-select" class="device-select-input"></select>
+                <span class="device-select-label" id="prejoin-cam-dd-label">Камера</span>
+                <div class="custom-device-select" data-device-kind="camera" data-select-context="prejoin" data-selected-id="" aria-labelledby="prejoin-cam-dd-label">
+                  <button type="button" class="custom-device-select-trigger" aria-expanded="false" aria-haspopup="listbox">
+                    <span class="custom-device-select-text">По умолчанию</span>
+                    <span class="custom-device-select-chevron" aria-hidden="true"></span>
+                  </button>
+                  <ul class="custom-device-select-menu" role="listbox" hidden></ul>
                 </div>
               </div>
               <div class="field-group device-select-field device-output-field hidden" id="prejoin-output-field">
-                <label class="device-select-label" for="prejoin-output-select">Вывод звука</label>
-                <div class="device-select-shell">
-                  <select id="prejoin-output-select" class="device-select-input"></select>
+                <span class="device-select-label" id="prejoin-out-dd-label">Вывод звука</span>
+                <div class="custom-device-select" data-device-kind="output" data-select-context="prejoin" data-selected-id="" aria-labelledby="prejoin-out-dd-label">
+                  <button type="button" class="custom-device-select-trigger" aria-expanded="false" aria-haspopup="listbox">
+                    <span class="custom-device-select-text">По умолчанию</span>
+                    <span class="custom-device-select-chevron" aria-hidden="true"></span>
+                  </button>
+                  <ul class="custom-device-select-menu" role="listbox" hidden></ul>
                 </div>
               </div>
             </div>
@@ -140,11 +152,6 @@
               <div class="meeting-title">Созвон</div>
               <div class="meeting-room-name">{{ room_title }}</div>
               <div id="meeting-participant-status" class="meeting-participant-status muted" role="status" aria-live="polite"></div>
-              <div id="meeting-self-name-row" class="meeting-self-name-row hidden">
-                <span class="meeting-self-name-label muted">Твоё имя</span>
-                <span id="meeting-self-name-display" class="meeting-self-name-value"></span>
-                <button type="button" id="rename-self-btn" class="btn secondary meeting-rename-btn" disabled>Сменить</button>
-              </div>
             </div>
 
             <div class="meeting-controls">
@@ -178,26 +185,64 @@
 
               <div id="call-timer" class="meeting-timer">00:00</div>
 
+              <button type="button" id="meeting-settings-btn" class="icon-btn meeting-settings-btn" disabled aria-label="Настройки">
+                <svg class="icon-svg meeting-settings-gear" viewBox="0 0 24 24" aria-hidden="true">
+                  <path
+                    fill="currentColor"
+                    d="M19.43 12.98c.04-.32.07-.64.07-.98s-.03-.66-.07-.98l2.11-1.65c.19-.15.24-.42.12-.64l-2-3.46c-.12-.22-.39-.3-.61-.22l-2.49 1c-.52-.4-1.08-.73-1.69-.98l-.38-2.65A.488.488 0 0 0 14 2h-4c-.25 0-.46.18-.49.42l-.38 2.65c-.61.25-1.17.59-1.69.98l-2.49-1c-.23-.09-.49 0-.61.22l-2 3.46c-.13.22-.07.49.12.64l2.11 1.65c-.04.32-.07.65-.07.98s.03.66.07.98l-2.11 1.65c-.19.15-.24.42-.12.64l2 3.46c.12.22.39.3.61.22l2.49-1c.52.4 1.08.73 1.69.98l.38 2.65c.03.24.24.42.49.42h4c.25 0 .46-.18.49-.42l.38-2.65c.61-.25 1.17-.59 1.69-.98l2.49 1c.23.09.49 0 .61-.22l2-3.46c.13-.22.07-.49-.12-.64l-2.11-1.65zM12 15.5c-1.93 0-3.5-1.57-3.5-3.5s1.57-3.5 3.5-3.5 3.5 1.57 3.5 3.5-1.57 3.5-3.5 3.5z"
+                  />
+                </svg>
+              </button>
+
               <button id="copy-invite-btn" class="btn secondary invite-inline-btn" disabled>Скопировать ссылку</button>
             </div>
+          </div>
 
-            <div class="meeting-device-bar" id="meeting-device-bar">
-              <div class="field-group device-select-field">
-                <label class="device-select-label" for="meeting-mic-select">Микрофон</label>
-                <div class="device-select-shell">
-                  <select id="meeting-mic-select" class="device-select-input" disabled></select>
-                </div>
+          <div id="meeting-settings-backdrop" class="meeting-settings-backdrop hidden" aria-hidden="true"></div>
+          <div id="meeting-settings-panel" class="meeting-settings-panel hidden" role="dialog" aria-modal="true" aria-labelledby="meeting-settings-title">
+            <div class="meeting-settings-header">
+              <h2 id="meeting-settings-title" class="meeting-settings-title">Настройки</h2>
+              <button type="button" id="meeting-settings-close" class="meeting-settings-close" aria-label="Закрыть">×</button>
+            </div>
+            <div class="meeting-settings-body">
+              <div class="field-group meeting-settings-name-block">
+                <label for="meeting-settings-name">Имя в комнате</label>
+                <input id="meeting-settings-name" type="text" maxlength="50" placeholder="Как тебя видят другие" />
+                <button type="button" id="meeting-settings-save-name" class="btn secondary meeting-settings-save-name">Сохранить имя</button>
               </div>
-              <div class="field-group device-select-field">
-                <label class="device-select-label" for="meeting-cam-select">Камера</label>
-                <div class="device-select-shell">
-                  <select id="meeting-cam-select" class="device-select-input" disabled></select>
-                </div>
-              </div>
-              <div class="field-group device-select-field device-output-field hidden" id="meeting-output-field">
-                <label class="device-select-label" for="meeting-output-select">Вывод звука</label>
-                <div class="device-select-shell">
-                  <select id="meeting-output-select" class="device-select-input" disabled></select>
+              <div class="meeting-settings-devices">
+                <p class="meeting-settings-section-label">Устройства</p>
+                <div class="meeting-settings-device-grid">
+                  <div class="field-group device-select-field">
+                    <span class="device-select-label" id="settings-mic-dd-label">Микрофон</span>
+                    <div class="custom-device-select" data-device-kind="mic" data-select-context="meeting" data-selected-id="" aria-labelledby="settings-mic-dd-label">
+                      <button type="button" class="custom-device-select-trigger" aria-expanded="false" aria-haspopup="listbox">
+                        <span class="custom-device-select-text">По умолчанию</span>
+                        <span class="custom-device-select-chevron" aria-hidden="true"></span>
+                      </button>
+                      <ul class="custom-device-select-menu" role="listbox" hidden></ul>
+                    </div>
+                  </div>
+                  <div class="field-group device-select-field">
+                    <span class="device-select-label" id="settings-cam-dd-label">Камера</span>
+                    <div class="custom-device-select" data-device-kind="camera" data-select-context="meeting" data-selected-id="" aria-labelledby="settings-cam-dd-label">
+                      <button type="button" class="custom-device-select-trigger" aria-expanded="false" aria-haspopup="listbox">
+                        <span class="custom-device-select-text">По умолчанию</span>
+                        <span class="custom-device-select-chevron" aria-hidden="true"></span>
+                      </button>
+                      <ul class="custom-device-select-menu" role="listbox" hidden></ul>
+                    </div>
+                  </div>
+                  <div class="field-group device-select-field device-output-field hidden" id="meeting-output-field">
+                    <span class="device-select-label" id="settings-out-dd-label">Вывод звука</span>
+                    <div class="custom-device-select" data-device-kind="output" data-select-context="meeting" data-selected-id="" aria-labelledby="settings-out-dd-label">
+                      <button type="button" class="custom-device-select-trigger" aria-expanded="false" aria-haspopup="listbox">
+                        <span class="custom-device-select-text">По умолчанию</span>
+                        <span class="custom-device-select-chevron" aria-hidden="true"></span>
+                      </button>
+                      <ul class="custom-device-select-menu" role="listbox" hidden></ul>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -296,14 +341,14 @@
       const attachmentInput = document.getElementById('attachment-input');
       const attachmentBtn = document.getElementById('attachment-btn');
       const chatDropzone = document.getElementById('chat-dropzone');
-      const prejoinMicSelect = document.getElementById('prejoin-mic-select');
-      const prejoinCamSelect = document.getElementById('prejoin-cam-select');
-      const prejoinOutputSelect = document.getElementById('prejoin-output-select');
       const prejoinOutputField = document.getElementById('prejoin-output-field');
-      const meetingMicSelect = document.getElementById('meeting-mic-select');
-      const meetingCamSelect = document.getElementById('meeting-cam-select');
-      const meetingOutputSelect = document.getElementById('meeting-output-select');
       const meetingOutputField = document.getElementById('meeting-output-field');
+      const meetingSettingsBtn = document.getElementById('meeting-settings-btn');
+      const meetingSettingsBackdrop = document.getElementById('meeting-settings-backdrop');
+      const meetingSettingsPanel = document.getElementById('meeting-settings-panel');
+      const meetingSettingsClose = document.getElementById('meeting-settings-close');
+      const meetingSettingsName = document.getElementById('meeting-settings-name');
+      const meetingSettingsSaveNameBtn = document.getElementById('meeting-settings-save-name');
 
       let room = null;
       let micEnabled = true;
@@ -323,6 +368,8 @@
       let preferredVideoDeviceId = '';
       let preferredAudioOutputDeviceId = '';
       let deviceListDebounce = null;
+      let meetingSettingsOpen = false;
+      let customDeviceSelectsWired = false;
 
       function showToast(message, type = 'info') {
         const toast = document.createElement('div');
@@ -470,12 +517,9 @@
           if (!el) return;
           el.disabled = disabled;
         });
-        const allowMeetingDevices = !disabled && !!room;
-        if (meetingMicSelect) meetingMicSelect.disabled = !allowMeetingDevices;
-        if (meetingCamSelect) meetingCamSelect.disabled = !allowMeetingDevices;
-        if (meetingOutputSelect && audioOutputSupported()) {
-          meetingOutputSelect.disabled = !allowMeetingDevices;
-        }
+        const allowMeetingChrome = !disabled && !!room;
+        if (meetingSettingsBtn) meetingSettingsBtn.disabled = !allowMeetingChrome;
+        setMeetingSettingsTriggersDisabled(!allowMeetingChrome);
       }
 
       function showReconnectBanner(message, { loading = false, showRetry = false } = {}) {
@@ -664,23 +708,150 @@
         return devices.some((d) => d.deviceId === id) ? id : '';
       }
 
-      function fillDeviceSelectOptions(selectEl, devices, selectedId) {
-        if (!selectEl) return '';
-        const valid = pickValidDeviceId(devices, selectedId);
-        selectEl.innerHTML = '';
-        const def = document.createElement('option');
-        def.value = '';
-        def.textContent = 'По умолчанию';
-        selectEl.appendChild(def);
-        devices.forEach((d) => {
-          const opt = document.createElement('option');
-          opt.value = d.deviceId;
-          opt.textContent = d.label || `Устройство (${String(d.deviceId).slice(0, 6)}…)`;
-          selectEl.appendChild(opt);
+
+      function closeAllCustomDeviceMenus() {
+        document.querySelectorAll('.custom-device-select.is-open').forEach((root) => {
+          const menu = root.querySelector('.custom-device-select-menu');
+          const trigger = root.querySelector('.custom-device-select-trigger');
+          if (menu) menu.hidden = true;
+          if (trigger) trigger.setAttribute('aria-expanded', 'false');
+          root.classList.remove('is-open');
         });
-        selectEl.value = valid;
+      }
+
+
+      function setMeetingSettingsTriggersDisabled(disabled) {
+        document.querySelectorAll('.custom-device-select[data-select-context="meeting"] .custom-device-select-trigger').forEach((btn) => {
+          btn.disabled = disabled;
+        });
+      }
+
+
+      function setMeetingSettingsOpen(open) {
+        meetingSettingsOpen = !!open;
+        meetingSettingsBackdrop?.classList.toggle('hidden', !open);
+        meetingSettingsPanel?.classList.toggle('hidden', !open);
+        if (meetingSettingsBackdrop) meetingSettingsBackdrop.setAttribute('aria-hidden', open ? 'false' : 'true');
+        if (!open) closeAllCustomDeviceMenus();
+        if (open) {
+          if (meetingSettingsName) meetingSettingsName.value = displayNameInput.value.trim() || '';
+          void refreshAudioVideoDeviceLists();
+        }
+      }
+
+
+      function setSelectedDeviceKind(kind, id, label) {
+        const text = (label || '').trim() || 'По умолчанию';
+        if (kind === 'mic') preferredAudioDeviceId = id;
+        else if (kind === 'camera') preferredVideoDeviceId = id;
+        else if (kind === 'output') preferredAudioOutputDeviceId = id;
+        document.querySelectorAll(`.custom-device-select[data-device-kind="${kind}"]`).forEach((root) => {
+          root.dataset.selectedId = id;
+          const textEl = root.querySelector('.custom-device-select-text');
+          if (textEl) textEl.textContent = text;
+          root.querySelectorAll('.custom-device-select-option').forEach((opt) => {
+            const oid = opt.getAttribute('data-device-id') || '';
+            opt.classList.toggle('is-selected', oid === id);
+          });
+        });
+      }
+
+
+      function fillDeviceDropdowns(kind, devices, selectedId) {
+        const valid = pickValidDeviceId(devices, selectedId);
+        const entries = [{ id: '', label: 'По умолчанию' }].concat(
+          devices.map((d) => ({
+            id: d.deviceId,
+            label: d.label || `Устройство (${String(d.deviceId).slice(0, 6)}…)`,
+          })),
+        );
+        const labelFor = (entries.find((e) => e.id === valid) || entries[0]).label;
+        document.querySelectorAll(`.custom-device-select[data-device-kind="${kind}"]`).forEach((root) => {
+          root.dataset.selectedId = valid;
+          const textEl = root.querySelector('.custom-device-select-text');
+          if (textEl) textEl.textContent = labelFor;
+          const menu = root.querySelector('.custom-device-select-menu');
+          if (!menu) return;
+          menu.textContent = '';
+          entries.forEach((e) => {
+            const li = document.createElement('li');
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.setAttribute('role', 'option');
+            btn.className = `custom-device-select-option${e.id === valid ? ' is-selected' : ''}`;
+            btn.setAttribute('data-device-id', e.id);
+            btn.textContent = e.label;
+            li.appendChild(btn);
+            menu.appendChild(li);
+          });
+        });
         return valid;
       }
+
+
+      function initCustomDeviceSelects() {
+        if (customDeviceSelectsWired) return;
+        customDeviceSelectsWired = true;
+        document.querySelectorAll('.custom-device-select').forEach((root) => {
+          const trigger = root.querySelector('.custom-device-select-trigger');
+          const menu = root.querySelector('.custom-device-select-menu');
+          if (!trigger || !menu) return;
+          trigger.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (trigger.disabled) return;
+            const opening = menu.hidden;
+            closeAllCustomDeviceMenus();
+            if (opening) {
+              menu.hidden = false;
+              trigger.setAttribute('aria-expanded', 'true');
+              root.classList.add('is-open');
+            }
+          });
+          menu.addEventListener('click', (e) => {
+            const btn = e.target.closest('.custom-device-select-option');
+            if (!btn) return;
+            e.stopPropagation();
+            const id = btn.getAttribute('data-device-id') || '';
+            const tx = (btn.textContent || '').trim() || 'По умолчанию';
+            const kind = root.getAttribute('data-device-kind') || '';
+            const ctx = root.getAttribute('data-select-context') || 'prejoin';
+            setSelectedDeviceKind(kind, id, tx);
+            closeAllCustomDeviceMenus();
+            if (kind === 'mic') {
+              if (ctx === 'prejoin') {
+                updateSavedSession({ audioDeviceId: preferredAudioDeviceId || '' });
+                void refreshPrejoinPreview();
+              } else {
+                void applyMeetingAudioDevice();
+              }
+            } else if (kind === 'camera') {
+              if (ctx === 'prejoin') {
+                updateSavedSession({ videoDeviceId: preferredVideoDeviceId || '' });
+                void refreshPrejoinPreview();
+              } else {
+                void applyMeetingVideoDevice();
+              }
+            } else if (kind === 'output') {
+              if (ctx === 'prejoin') {
+                updateSavedSession({ audioOutputDeviceId: preferredAudioOutputDeviceId || '' });
+                void applyPreferredAudioOutputToAllPlayback();
+              } else {
+                void applyMeetingAudioOutputDevice();
+              }
+            }
+          });
+        });
+        document.addEventListener('click', () => {
+          closeAllCustomDeviceMenus();
+        });
+        document.addEventListener('keydown', (e) => {
+          if (e.key === 'Escape') {
+            if (meetingSettingsOpen) setMeetingSettingsOpen(false);
+            else closeAllCustomDeviceMenus();
+          }
+        });
+      }
+
 
       async function refreshAudioVideoDeviceLists() {
         if (!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) return;
@@ -693,44 +864,17 @@
         const mics = list.filter((d) => d.kind === 'audioinput');
         const cams = list.filter((d) => d.kind === 'videoinput');
         const outputs = list.filter((d) => d.kind === 'audiooutput');
-        const pa = fillDeviceSelectOptions(prejoinMicSelect, mics, preferredAudioDeviceId);
-        fillDeviceSelectOptions(meetingMicSelect, mics, pa);
-        const pv = fillDeviceSelectOptions(prejoinCamSelect, cams, preferredVideoDeviceId);
-        fillDeviceSelectOptions(meetingCamSelect, cams, pv);
-        preferredAudioDeviceId = pa;
-        preferredVideoDeviceId = pv;
-        if (meetingMicSelect) meetingMicSelect.value = pa;
-        if (meetingCamSelect) meetingCamSelect.value = pv;
+        preferredAudioDeviceId = fillDeviceDropdowns('mic', mics, preferredAudioDeviceId);
+        preferredVideoDeviceId = fillDeviceDropdowns('camera', cams, preferredVideoDeviceId);
         if (audioOutputSupported()) {
           prejoinOutputField?.classList.remove('hidden');
           meetingOutputField?.classList.remove('hidden');
-          const po = fillDeviceSelectOptions(prejoinOutputSelect, outputs, preferredAudioOutputDeviceId);
-          fillDeviceSelectOptions(meetingOutputSelect, outputs, po);
-          preferredAudioOutputDeviceId = po;
-          if (meetingOutputSelect) meetingOutputSelect.value = po;
+          preferredAudioOutputDeviceId = fillDeviceDropdowns('output', outputs, preferredAudioOutputDeviceId);
         } else {
           prejoinOutputField?.classList.add('hidden');
           meetingOutputField?.classList.add('hidden');
         }
         void applyPreferredAudioOutputToAllPlayback();
-      }
-
-      function syncPreferredFromSelects(fromMeeting) {
-        if (fromMeeting) {
-          preferredAudioDeviceId = meetingMicSelect?.value || '';
-          preferredVideoDeviceId = meetingCamSelect?.value || '';
-          preferredAudioOutputDeviceId = meetingOutputSelect?.value || '';
-          if (prejoinMicSelect) prejoinMicSelect.value = preferredAudioDeviceId;
-          if (prejoinCamSelect) prejoinCamSelect.value = preferredVideoDeviceId;
-          if (prejoinOutputSelect) prejoinOutputSelect.value = preferredAudioOutputDeviceId;
-        } else {
-          preferredAudioDeviceId = prejoinMicSelect?.value || '';
-          preferredVideoDeviceId = prejoinCamSelect?.value || '';
-          preferredAudioOutputDeviceId = prejoinOutputSelect?.value || '';
-          if (meetingMicSelect) meetingMicSelect.value = preferredAudioDeviceId;
-          if (meetingCamSelect) meetingCamSelect.value = preferredVideoDeviceId;
-          if (meetingOutputSelect) meetingOutputSelect.value = preferredAudioOutputDeviceId;
-        }
       }
 
       function micCaptureOptions() {
@@ -763,7 +907,6 @@
 
       async function applyMeetingAudioDevice() {
         if (!room) return;
-        syncPreferredFromSelects(true);
         updateSavedSession({ audioDeviceId: preferredAudioDeviceId || '' });
         if (!micEnabled) return;
         try {
@@ -776,7 +919,6 @@
 
       async function applyMeetingVideoDevice() {
         if (!room) return;
-        syncPreferredFromSelects(true);
         updateSavedSession({ videoDeviceId: preferredVideoDeviceId || '' });
         if (!cameraEnabled) return;
         try {
@@ -790,7 +932,6 @@
 
       async function applyMeetingAudioOutputDevice() {
         if (!room) return;
-        syncPreferredFromSelects(true);
         updateSavedSession({ audioOutputDeviceId: preferredAudioOutputDeviceId || '' });
         await applyPreferredAudioOutputToAllPlayback();
       }
@@ -825,7 +966,6 @@
           if (preferredAudioDeviceId || preferredVideoDeviceId) {
             preferredAudioDeviceId = '';
             preferredVideoDeviceId = '';
-            syncPreferredFromSelects(false);
             try {
               const stream = await tryAcquire(micEnabled, cameraEnabled);
               previewStream = stream;
@@ -1174,8 +1314,7 @@
         if (isLocal) {
           displayNameInput.value = nm;
           updateSavedSession({ displayName: nm });
-          const d = document.getElementById('meeting-self-name-display');
-          if (d) d.textContent = nm;
+          if (meetingSettingsName) meetingSettingsName.value = nm;
         }
         updateChatAuthorLabels(identity, nm);
         const label = isLocal ? `${nm} (ты)` : nm;
@@ -1383,29 +1522,9 @@
         return `Гость-${Date.now().toString(36).slice(-4)}${Math.random().toString(36).slice(2, 5)}`.slice(0, 24);
       }
 
-      function showMeetingSelfNameRow() {
-        const row = document.getElementById('meeting-self-name-row');
-        const disp = document.getElementById('meeting-self-name-display');
-        const btn = document.getElementById('rename-self-btn');
-        if (!row || !disp || !btn) return;
-        row.classList.remove('hidden');
-        disp.textContent = displayNameInput.value.trim() || 'Гость';
-        btn.disabled = false;
-      }
-
-      function hideMeetingSelfNameRow() {
-        const row = document.getElementById('meeting-self-name-row');
-        const btn = document.getElementById('rename-self-btn');
-        if (row) row.classList.add('hidden');
-        if (btn) btn.disabled = true;
-      }
-
-      async function renameSelfInRoom() {
+      async function saveMeetingSettingsName() {
         if (!room) return;
-        const current = displayNameInput.value.trim() || 'Гость';
-        const next = window.prompt('Новое имя в комнате', current);
-        if (next === null) return;
-        const name = next.trim().slice(0, 50);
+        const name = (meetingSettingsName?.value || '').trim().slice(0, 50);
         if (!name) {
           showToast('Введи непустое имя', 'error');
           return;
@@ -1416,6 +1535,7 @@
             return;
           }
           await room.localParticipant.setName(name);
+          displayNameInput.value = name;
           await syncChatAuthorDisplay(name);
           await sendSystemData({
             type: 'display-name-sync',
@@ -1600,13 +1720,10 @@
               }
             })
             .on(LivekitClient.RoomEvent.Disconnected, async () => {
-              hideMeetingSelfNameRow();
+              setMeetingSettingsOpen(false);
               const wasIntentional = intentionalDisconnect;
               const hasSavedSession = !!loadCallSession();
               room = null;
-              if (meetingMicSelect) meetingMicSelect.disabled = true;
-              if (meetingCamSelect) meetingCamSelect.disabled = true;
-              if (meetingOutputSelect) meetingOutputSelect.disabled = true;
               leaveBtn.disabled = true;
               micBtn.disabled = true;
               cameraBtn.disabled = true;
@@ -1677,7 +1794,6 @@
           reconnectInProgress = false;
           activeReconnectAttempt = 0;
           updateMeetingParticipantStatus();
-          showMeetingSelfNameRow();
           if (reconnectMode) showToast('Соединение восстановлено', 'success');
         } catch (error) {
           console.error(error);
@@ -1733,14 +1849,14 @@
         if (!preserveSession) clearCallSession();
         intentionalDisconnect = true;
         if (!room) {
-          hideMeetingSelfNameRow();
+          setMeetingSettingsOpen(false);
           showPrejoinScreen();
           if (!silent) await refreshPrejoinPreview();
           return;
         }
         room.disconnect();
         room = null;
-        hideMeetingSelfNameRow();
+        setMeetingSettingsOpen(false);
         videos.innerHTML = '';
         updateVideoLayout();
         setStatus(silent ? 'звонок завершён' : 'выход из комнаты', silent ? 'success' : '');
@@ -1759,7 +1875,7 @@
         stopTimer();
         hideReconnectBanner();
         showPrejoinScreen();
-        hideMeetingSelfNameRow();
+        setMeetingSettingsOpen(false);
         setControlsDisabled(false);
         updateAllControlButtons();
         await refreshPrejoinPreview();
