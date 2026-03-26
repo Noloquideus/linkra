@@ -28,9 +28,11 @@ from .schemas import (
     JoinCallRequest,
     JoinCallResponse,
 )
+from .probe_blocker import ProbeBlockMiddleware
 from .store import store
 
 app = FastAPI(title="Video Call MVP")
+app.add_middleware(ProbeBlockMiddleware)
 
 templates = Jinja2Templates(directory="templates")
 app.mount("/static", StaticFiles(directory="static"), name="static")

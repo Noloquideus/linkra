@@ -18,6 +18,7 @@ class Settings(BaseSettings):
     telegram_bot_token: str = Field(default="", alias="TELEGRAM_BOT_TOKEN")
     telegram_chat_id: str = Field(default="", alias="TELEGRAM_CHAT_ID")
     telegram_topic_id: int | None = Field(default=None, alias="TELEGRAM_TOPIC_ID")
+    block_probe_paths: bool = Field(default=True, alias="BLOCK_PROBE_PATHS")
 
     model_config = SettingsConfigDict(case_sensitive=False, extra="ignore")
 
