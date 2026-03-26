@@ -403,6 +403,10 @@
       let meetingSettingsOpen = false;
       let customDeviceSelectsWired = false;
       let krispNoiseFilterEnabled = true;
+      const MAX_REMOTE_CAMERA_VIDEO_SUBS = 8;
+      const remoteParticipantJoinOrder = new Map();
+      let remoteParticipantJoinCounter = 0;
+      let selectiveSubscriptionDebounce = null;
 
       function showToast(message, type = 'info') {
         const toast = document.createElement('div');
@@ -1261,6 +1265,85 @@
         return src === 'microphone' || src === enumSource('Microphone') || (track && track.kind === 'audio' && !isScreenAudioSource(src));
       }
 
+      function isLikelyRemoteCameraPublication(publication) {
+        if (!publication || publication.kind !== 'video') return false;
+        const src = resolvePublicationSource(publication.source, publication.track);
+        if (isScreenShareSource(src)) return false;
+        return isCameraSource(src, publication.track || { kind: 'video' });
+      }
+
+      function ensureRemoteParticipantJoinOrders() {
+        if (!room) return;
+        room.remoteParticipants.forEach((p) => {
+          if (!remoteParticipantJoinOrder.has(p.identity)) {
+            remoteParticipantJoinOrder.set(p.identity, remoteParticipantJoinCounter++);
+          }
+        });
+      }
+
+      function computeRemoteCameraVideoAllowIdentities() {
+        if (!room) return new Set();
+        const remotes = Array.from(room.remoteParticipants.values());
+        const byJoin = (a, b) =>
+          (remoteParticipantJoinOrder.get(a.identity) ?? 99999) - (remoteParticipantJoinOrder.get(b.identity) ?? 99999);
+        const speakerList = (room.activeSpeakers || []).filter((p) => p && !p.isLocal);
+        const seen = new Set();
+        const ordered = [];
+        speakerList.forEach((p) => {
+          if (!seen.has(p.identity)) {
+            seen.add(p.identity);
+            ordered.push(p);
+          }
+        });
+        remotes.slice().sort(byJoin).forEach((p) => {
+          if (!seen.has(p.identity)) {
+            seen.add(p.identity);
+            ordered.push(p);
+          }
+        });
+        const allow = new Set();
+        for (let i = 0; i < ordered.length && allow.size < MAX_REMOTE_CAMERA_VIDEO_SUBS; i += 1) {
+          allow.add(ordered[i].identity);
+        }
+        return allow;
+      }
+
+      function applyRemoteTrackSubscriptions() {
+        if (!room) return;
+        ensureRemoteParticipantJoinOrders();
+        const allowCam = computeRemoteCameraVideoAllowIdentities();
+        room.remoteParticipants.forEach((participant) => {
+          participant.trackPublications.forEach((publication) => {
+            if (typeof publication.setSubscribed !== 'function') return;
+            const kind = publication.kind;
+            const src = publication.source;
+            if (kind === 'audio') {
+              publication.setSubscribed(true);
+              return;
+            }
+            if (kind === 'video') {
+              if (isScreenShareSource(src)) {
+                publication.setSubscribed(true);
+                return;
+              }
+              if (isLikelyRemoteCameraPublication(publication)) {
+                publication.setSubscribed(allowCam.has(participant.identity));
+                return;
+              }
+              publication.setSubscribed(true);
+            }
+          });
+        });
+      }
+
+      function scheduleRemoteTrackSubscriptions() {
+        if (selectiveSubscriptionDebounce) clearTimeout(selectiveSubscriptionDebounce);
+        selectiveSubscriptionDebounce = setTimeout(() => {
+          selectiveSubscriptionDebounce = null;
+          applyRemoteTrackSubscriptions();
+        }, 200);
+      }
+
       function isLocalScreenSharing() {
         if (!room) return false;
         let active = false;
@@ -1724,6 +1807,12 @@
           updateMeetingKrispToggleUi();
 
           await stopPrejoinPreview();
+          remoteParticipantJoinOrder.clear();
+          remoteParticipantJoinCounter = 0;
+          if (selectiveSubscriptionDebounce) {
+            clearTimeout(selectiveSubscriptionDebounce);
+            selectiveSubscriptionDebounce = null;
+          }
           room = new LivekitClient.Room({ adaptiveStream: true, dynacast: true });
 
           const nameChangedEv =
@@ -1755,6 +1844,10 @@
                 updateParticipantIndicators(participant, label, false);
               }
             })
+            .on(LivekitClient.RoomEvent.TrackPublished, (publication, participant) => {
+              if (!participant || participant.isLocal) return;
+              scheduleRemoteTrackSubscriptions();
+            })
             .on(LivekitClient.RoomEvent.LocalTrackPublished, (publication) => {
               if (!publication.track) return;
               const label = getLocalParticipantLabel();
@@ -1771,19 +1864,26 @@
               updateAllControlButtons();
             })
             .on(LivekitClient.RoomEvent.ParticipantConnected, (participant) => {
+              if (!participant.isLocal && !remoteParticipantJoinOrder.has(participant.identity)) {
+                remoteParticipantJoinOrder.set(participant.identity, remoteParticipantJoinCounter++);
+              }
               if (!reconnectInProgress) {
                 showAvatar(participant.identity, participant.name || participant.identity);
                 addChatMessage('Система', `${participant.name || participant.identity} вошёл в комнату`);
               }
               updateMeetingParticipantStatus();
+              if (!participant.isLocal) scheduleRemoteTrackSubscriptions();
             })
             .on(LivekitClient.RoomEvent.ParticipantDisconnected, (participant) => {
+              remoteParticipantJoinOrder.delete(participant.identity);
               detachParticipant(participant.identity);
               addChatMessage('Система', `${participant.name || participant.identity} вышел из комнаты`);
               updateMeetingParticipantStatus();
+              scheduleRemoteTrackSubscriptions();
             })
             .on(LivekitClient.RoomEvent.ActiveSpeakersChanged, (speakers) => {
               updateSpeakingIndicators(speakers);
+              scheduleRemoteTrackSubscriptions();
             })
             .on(LivekitClient.RoomEvent.ConnectionQualityChanged, (quality, participant) => {
               if (!participant || participant.isLocal || participant.identity === room.localParticipant.identity) {
@@ -1832,6 +1932,12 @@
               setMeetingSettingsOpen(false);
               const wasIntentional = intentionalDisconnect;
               const hasSavedSession = !!loadCallSession();
+              remoteParticipantJoinOrder.clear();
+              remoteParticipantJoinCounter = 0;
+              if (selectiveSubscriptionDebounce) {
+                clearTimeout(selectiveSubscriptionDebounce);
+                selectiveSubscriptionDebounce = null;
+              }
               room = null;
               leaveBtn.disabled = true;
               micBtn.disabled = true;
@@ -1867,7 +1973,7 @@
             });
 
           await room.connect(data.server_url, data.participant_token, {
-            autoSubscribe: true,
+            autoSubscribe: false,
             audioCaptureDefaults: {
               autoGainControl: true,
               echoCancellation: true,
@@ -1875,6 +1981,7 @@
             },
           });
 
+          applyRemoteTrackSubscriptions();
           setStatus('подключён', 'success');
           await room.localParticipant.setMicrophoneEnabled(micEnabled, micCaptureOptions());
           void syncKrispForAllLocalMicrophones();
