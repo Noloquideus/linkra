@@ -222,6 +222,25 @@
                 <input id="meeting-settings-name" type="text" maxlength="50" placeholder="Как тебя видят другие" />
                 <button type="button" id="meeting-settings-save-name" class="btn secondary meeting-settings-save-name">Сохранить имя</button>
               </div>
+              <div class="meeting-settings-krisp-block">
+                <p class="meeting-settings-section-label meeting-settings-section-label-tight">Звук</p>
+                <div class="meeting-settings-toggle-row">
+                  <div class="meeting-settings-toggle-copy">
+                    <span class="meeting-settings-toggle-title" id="meeting-krisp-label">Шумоподавление</span>
+                    <span class="meeting-settings-toggle-hint muted">Снижает фоновый шум с микрофона (Krisp)</span>
+                  </div>
+                  <button
+                    type="button"
+                    id="meeting-krisp-toggle"
+                    class="meeting-settings-toggle"
+                    role="switch"
+                    aria-checked="true"
+                    aria-labelledby="meeting-krisp-label"
+                  >
+                    <span class="meeting-settings-toggle-knob" aria-hidden="true"></span>
+                  </button>
+                </div>
+              </div>
               <div class="meeting-settings-devices">
                 <p class="meeting-settings-section-label">Устройства</p>
                 <div class="meeting-settings-device-grid">
@@ -361,6 +380,7 @@
       const meetingSettingsClose = document.getElementById('meeting-settings-close');
       const meetingSettingsName = document.getElementById('meeting-settings-name');
       const meetingSettingsSaveNameBtn = document.getElementById('meeting-settings-save-name');
+      const meetingKrispToggle = document.getElementById('meeting-krisp-toggle');
 
       let room = null;
       let micEnabled = true;
@@ -382,6 +402,7 @@
       let deviceListDebounce = null;
       let meetingSettingsOpen = false;
       let customDeviceSelectsWired = false;
+      let krispNoiseFilterEnabled = true;
 
       function showToast(message, type = 'info') {
         const toast = document.createElement('div');
@@ -533,6 +554,7 @@
         if (meetingSettingsBtn) meetingSettingsBtn.disabled = !allowMeetingChrome;
         if (meetingSettingsName) meetingSettingsName.disabled = !allowMeetingChrome;
         if (meetingSettingsSaveNameBtn) meetingSettingsSaveNameBtn.disabled = !allowMeetingChrome;
+        if (meetingKrispToggle) meetingKrispToggle.disabled = !allowMeetingChrome;
         setMeetingSettingsTriggersDisabled(!allowMeetingChrome);
       }
 
@@ -578,6 +600,7 @@
             audioDeviceId: parsed.audioDeviceId || '',
             videoDeviceId: parsed.videoDeviceId || '',
             audioOutputDeviceId: parsed.audioOutputDeviceId || '',
+            krispNoiseFilterEnabled: parsed.krispNoiseFilterEnabled ?? true,
           };
         } catch {
           return null;
@@ -741,6 +764,12 @@
       }
 
 
+      function updateMeetingKrispToggleUi() {
+        if (!meetingKrispToggle) return;
+        meetingKrispToggle.setAttribute('aria-checked', krispNoiseFilterEnabled ? 'true' : 'false');
+      }
+
+
       function setMeetingSettingsOpen(open) {
         meetingSettingsOpen = !!open;
         meetingSettingsBackdrop?.classList.toggle('hidden', !open);
@@ -749,6 +778,7 @@
         if (!open) closeAllCustomDeviceMenus();
         if (open) {
           if (meetingSettingsName) meetingSettingsName.value = displayNameInput.value.trim() || '';
+          updateMeetingKrispToggleUi();
           void refreshAudioVideoDeviceLists();
         }
       }
@@ -897,6 +927,64 @@
         return o;
       }
 
+
+      let krispNoiseFilterModulePromise = null;
+
+      function loadKrispNoiseFilterModule() {
+        if (!krispNoiseFilterModulePromise) {
+          krispNoiseFilterModulePromise = import(
+            'https://cdn.jsdelivr.net/npm/@livekit/krisp-noise-filter@0.4.1/+esm',
+          ).catch(() => null);
+        }
+        return krispNoiseFilterModulePromise;
+      }
+
+
+
+      async function attachKrispToMicrophonePublication(publication) {
+        if (!krispNoiseFilterEnabled || !publication || !room) return;
+        const Track = LivekitClient.Track;
+        if (publication.source !== Track.Source.Microphone) return;
+        const track = publication.track;
+        if (!track || track.kind !== 'audio') return;
+        const mod = await loadKrispNoiseFilterModule();
+        if (!mod || typeof mod.isKrispNoiseFilterSupported !== 'function' || !mod.isKrispNoiseFilterSupported()) {
+          return;
+        }
+        try {
+          const processor = mod.KrispNoiseFilter();
+          await track.setProcessor(processor);
+          await processor.setEnabled(true);
+        } catch (err) {
+          console.warn('Krisp noise filter unavailable', err);
+        }
+      }
+
+
+      async function syncKrispForMicrophonePublication(publication) {
+        if (!publication?.track || !room) return;
+        const Track = LivekitClient.Track;
+        if (publication.source !== Track.Source.Microphone || publication.track.kind !== 'audio') return;
+        if (krispNoiseFilterEnabled) {
+          await attachKrispToMicrophonePublication(publication);
+        } else if (typeof publication.track.stopProcessor === 'function') {
+          try {
+            await publication.track.stopProcessor();
+          } catch (_) {}
+        }
+      }
+
+
+      async function syncKrispForAllLocalMicrophones() {
+        if (!room) return;
+        const tasks = [];
+        room.localParticipant.trackPublications.forEach((pub) => {
+          tasks.push(syncKrispForMicrophonePublication(pub));
+        });
+        await Promise.all(tasks);
+      }
+
+
       function camCaptureOptions() {
         return preferredVideoDeviceId ? { deviceId: preferredVideoDeviceId } : {};
       }
@@ -907,6 +995,8 @@
         preferredAudioDeviceId = saved.audioDeviceId || '';
         preferredVideoDeviceId = saved.videoDeviceId || '';
         preferredAudioOutputDeviceId = saved.audioOutputDeviceId || '';
+        krispNoiseFilterEnabled = saved.krispNoiseFilterEnabled ?? true;
+        updateMeetingKrispToggleUi();
       }
 
 
@@ -925,6 +1015,7 @@
         if (!micEnabled) return;
         try {
           await room.localParticipant.setMicrophoneEnabled(true, micCaptureOptions());
+          void syncKrispForAllLocalMicrophones();
         } catch (error) {
           showToast(error.message || 'Не удалось переключить микрофон', 'error');
         }
@@ -1616,6 +1707,7 @@
           }
 
           const data = await response.json();
+          krispNoiseFilterEnabled = savedSession?.krispNoiseFilterEnabled ?? true;
           saveCallSession({
             roomName,
             inviteToken,
@@ -1627,7 +1719,9 @@
             audioDeviceId: preferredAudioDeviceId || '',
             videoDeviceId: preferredVideoDeviceId || '',
             audioOutputDeviceId: preferredAudioOutputDeviceId || '',
+            krispNoiseFilterEnabled,
           });
+          updateMeetingKrispToggleUi();
 
           await stopPrejoinPreview();
           room = new LivekitClient.Room({ adaptiveStream: true, dynacast: true });
@@ -1667,6 +1761,7 @@
               attachTrack(publication.track, room.localParticipant.identity, label, true, publication.source);
               updateParticipantIndicators(room.localParticipant, label, true);
               updateAllControlButtons();
+              void syncKrispForMicrophonePublication(publication);
             })
             .on(LivekitClient.RoomEvent.LocalTrackUnpublished, (publication) => {
               if (publication.track) publication.track.detach().forEach((el) => el.remove());
@@ -1782,6 +1877,7 @@
 
           setStatus('подключён', 'success');
           await room.localParticipant.setMicrophoneEnabled(micEnabled, micCaptureOptions());
+          void syncKrispForAllLocalMicrophones();
           await room.localParticipant.setCameraEnabled(cameraEnabled, camCaptureOptions());
           attachExistingLocalTracks(displayName);
           await refreshAudioVideoDeviceLists();
@@ -1993,6 +2089,14 @@
 
       meetingSettingsClose?.addEventListener('click', () => setMeetingSettingsOpen(false));
 
+      meetingKrispToggle?.addEventListener('click', () => {
+        if (!room || meetingKrispToggle?.disabled) return;
+        krispNoiseFilterEnabled = !krispNoiseFilterEnabled;
+        updateSavedSession({ krispNoiseFilterEnabled });
+        updateMeetingKrispToggleUi();
+        void syncKrispForAllLocalMicrophones();
+      });
+
       meetingSettingsSaveNameBtn?.addEventListener('click', () => {
         void saveMeetingSettingsName();
       });
@@ -2111,6 +2215,8 @@
           roomPasswordInput.value = saved.roomPassword || '';
           micEnabled = saved.micEnabled ?? true;
           cameraEnabled = saved.cameraEnabled ?? true;
+          krispNoiseFilterEnabled = saved.krispNoiseFilterEnabled ?? true;
+          updateMeetingKrispToggleUi();
           isRestoringSession = true;
           updateAllControlButtons();
           await joinCall({ silentRestore: true });
